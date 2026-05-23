@@ -2,10 +2,7 @@ import { useMemo, useState } from 'react'
 import { SoundToggle } from './SoundToggle'
 import type { ConversionMode, Difficulty, LeaderboardFilter } from '../game/types'
 import { MODE_LABELS } from '../game/types'
-import {
-  localLeaderboardStore,
-  resetLocalLeaderboard,
-} from '../utils/leaderboardStorage'
+import { localLeaderboardStore } from '../utils/leaderboardStorage'
 
 interface LeaderboardProps {
   onBack: () => void
@@ -21,27 +18,13 @@ export function Leaderboard({ onBack }: LeaderboardProps) {
   const [timeFilter, setTimeFilter] = useState<LeaderboardFilter>('all')
   const [modeFilter, setModeFilter] = useState<ConversionMode | ''>('')
   const [difficultyFilter, setDifficultyFilter] = useState<Difficulty | ''>('')
-  const [refresh, setRefresh] = useState(0)
-
   const entries = useMemo(() => {
-    void refresh
     return localLeaderboardStore.query({
       filter: timeFilter,
       mode: modeFilter || undefined,
       difficulty: difficultyFilter || undefined,
     })
-  }, [timeFilter, modeFilter, difficultyFilter, refresh])
-
-  const handleReset = () => {
-    if (
-      window.confirm(
-        'Reset the local leaderboard? This cannot be undone. (Teacher option)',
-      )
-    ) {
-      resetLocalLeaderboard()
-      setRefresh((r) => r + 1)
-    }
-  }
+  }, [timeFilter, modeFilter, difficultyFilter])
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-6">
@@ -147,14 +130,6 @@ export function Leaderboard({ onBack }: LeaderboardProps) {
           </tbody>
         </table>
       </div>
-
-      <button
-        type="button"
-        onClick={handleReset}
-        className="mt-6 text-[#ff4757] text-lg underline hover:no-underline"
-      >
-        Reset local leaderboard (teachers)
-      </button>
     </div>
   )
 }
