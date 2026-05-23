@@ -4,9 +4,9 @@ import { MODE_LABELS } from '../game/types'
 import {
   filterNickname,
   isNicknameAllowed,
-  localLeaderboardStore,
   nicknameFilterMessage,
 } from '../utils/leaderboardStorage'
+import { saveScore } from '../utils/apiLeaderboardStore'
 import { useState } from 'react'
 
 interface GameOverScreenProps {
@@ -26,12 +26,13 @@ export function GameOverScreen({
 }: GameOverScreenProps) {
   const [nickname, setNickname] = useState('')
   const [saved, setSaved] = useState(false)
+  const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const total = stats.correct + stats.incorrect
   const accuracy = accuracyPercent(stats.correct, total)
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const n = filterNickname(nickname)
     if (!n) {
       setError('Please enter a nickname.')
@@ -41,8 +42,9 @@ export function GameOverScreen({
       setError(nicknameFilterMessage())
       return
     }
+    setSaving(true)
     try {
-      localLeaderboardStore.save({
+      await saveScore({
         nickname: n,
         score: stats.score,
         mode: config.mode,
@@ -55,6 +57,8 @@ export function GameOverScreen({
       setError(null)
     } catch (err) {
       setError(err instanceof Error ? err.message : nicknameFilterMessage())
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -103,9 +107,10 @@ export function GameOverScreen({
           <button
             type="button"
             onClick={handleSave}
-            className="mt-4 w-full py-3 bg-[#c49bff] text-[#0a0e1a] font-pixel text-xs pixel-border"
+            disabled={saving}
+            className="mt-4 w-full py-3 bg-[#c49bff] text-[#0a0e1a] font-pixel text-xs pixel-border disabled:opacity-50"
           >
-            Save score
+            {saving ? 'Saving…' : 'Save score'}
           </button>
         </div>
       ) : (

@@ -1,0 +1,27 @@
+services:
+  bit-blitz:
+    build:
+      context: /root/bit-blitz
+      dockerfile: Dockerfile
+    container_name: bit-blitz
+    restart: unless-stopped
+    networks:
+      - v2_default
+
+  bit-blitz-api:
+    build:
+      context: /root/bit-blitz/backend
+      dockerfile: Dockerfile
+    container_name: bit-blitz-api
+    restart: unless-stopped
+    volumes:
+      - bit_blitz_scores:/app/data
+    networks:
+      - v2_default
+
+volumes:
+  bit_blitz_scores:
+
+networks:
+  v2_default:
+    external: true

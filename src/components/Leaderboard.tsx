@@ -1,8 +1,8 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { SoundToggle } from './SoundToggle'
-import type { ConversionMode, Difficulty, LeaderboardFilter } from '../game/types'
+import type { ConversionMode, Difficulty, LeaderboardEntry, LeaderboardFilter } from '../game/types'
 import { MODE_LABELS } from '../game/types'
-import { localLeaderboardStore } from '../utils/leaderboardStorage'
+import { queryScores } from '../utils/apiLeaderboardStore'
 
 interface LeaderboardProps {
   onBack: () => void
@@ -18,12 +18,23 @@ export function Leaderboard({ onBack }: LeaderboardProps) {
   const [timeFilter, setTimeFilter] = useState<LeaderboardFilter>('all')
   const [modeFilter, setModeFilter] = useState<ConversionMode | ''>('')
   const [difficultyFilter, setDifficultyFilter] = useState<Difficulty | ''>('')
-  const entries = useMemo(() => {
-    return localLeaderboardStore.query({
+  const [entries, setEntries] = useState<LeaderboardEntry[]>([])
+  const [loading, setLoading] = useState(true)
+  const [fetchError, setFetchError] = useState<string | null>(null)
+
+  useEffect(() => {
+    setLoading(true)
+    setFetchError(null)
+    queryScores({
       filter: timeFilter,
       mode: modeFilter || undefined,
       difficulty: difficultyFilter || undefined,
     })
+      .then(setEntries)
+      .catch((e: unknown) =>
+        setFetchError(e instanceof Error ? e.message : 'Failed to load scores'),
+      )
+      .finally(() => setLoading(false))
   }, [timeFilter, modeFilter, difficultyFilter])
 
   return (
@@ -103,7 +114,19 @@ export function Leaderboard({ onBack }: LeaderboardProps) {
             </tr>
           </thead>
           <tbody>
-            {entries.length === 0 ? (
+            {loading ? (
+              <tr>
+                <td colSpan={8} className="p-6 text-center text-[#8a9bb8]">
+                  Loading scores…
+                </td>
+              </tr>
+            ) : fetchError ? (
+              <tr>
+                <td colSpan={8} className="p-6 text-center text-[#ff4757]">
+                  {fetchError}
+                </td>
+              </tr>
+            ) : entries.length === 0 ? (
               <tr>
                 <td colSpan={8} className="p-6 text-center text-[#8a9bb8]">
                   No scores yet — be the first!
