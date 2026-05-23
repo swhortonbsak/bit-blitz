@@ -1,24 +1,9 @@
 import type { ConversionMode, Difficulty, LeaderboardEntry, LeaderboardFilter } from '../game/types'
+import { containsProfanity, nicknameFilterMessage } from './profanityFilter'
 
 const STORAGE_KEY = 'bit-blitz-leaderboard-v1'
 const MAX_ENTRIES = 500
-const NICKNAME_MAX = 12
-
-const BLOCKED = [
-  'damn',
-  'hell',
-  'crap',
-  'shit',
-  'fuck',
-  'fuk',
-  'ass',
-  'bitch',
-  'bastard',
-  'dick',
-  'piss',
-  'slut',
-  'whore',
-]
+export const NICKNAME_MAX = 12
 
 export interface LeaderboardQuery {
   filter: LeaderboardFilter
@@ -50,15 +35,20 @@ function persist(entries: LeaderboardEntry[]): void {
 }
 
 export function filterNickname(raw: string): string {
-  return raw.trim().slice(0, NICKNAME_MAX)
+  return raw
+    .trim()
+    .replace(/[\u0000-\u001f\u007f]/g, '')
+    .slice(0, NICKNAME_MAX)
 }
 
 export function isNicknameAllowed(nickname: string): boolean {
   const n = filterNickname(nickname)
   if (!n) return false
-  const lower = n.toLowerCase()
-  return !BLOCKED.some((w) => lower.includes(w))
+  if (containsProfanity(n)) return false
+  return true
 }
+
+export { nicknameFilterMessage }
 
 export function startOfToday(): number {
   const d = new Date()
@@ -81,11 +71,16 @@ export const localLeaderboardStore: LeaderboardStore = {
   },
 
   save(entry) {
+    const nickname = filterNickname(entry.nickname)
+    if (!isNicknameAllowed(nickname)) {
+      throw new Error(nicknameFilterMessage())
+    }
+
     const full: LeaderboardEntry = {
       ...entry,
       id: `lb-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       timestamp: Date.now(),
-      nickname: filterNickname(entry.nickname),
+      nickname,
     }
     const entries = [full, ...load()].sort((a, b) => b.score - a.score)
     persist(entries)

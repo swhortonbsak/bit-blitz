@@ -5,6 +5,7 @@ import {
   filterNickname,
   isNicknameAllowed,
   localLeaderboardStore,
+  nicknameFilterMessage,
 } from '../utils/leaderboardStorage'
 import { useState } from 'react'
 
@@ -37,20 +38,24 @@ export function GameOverScreen({
       return
     }
     if (!isNicknameAllowed(n)) {
-      setError('Please choose a different nickname.')
+      setError(nicknameFilterMessage())
       return
     }
-    localLeaderboardStore.save({
-      nickname: n,
-      score: stats.score,
-      mode: config.mode,
-      difficulty: config.difficulty,
-      accuracy,
-      questionsAnswered: stats.questionsAnswered,
-      bestStreak: stats.bestStreak,
-    })
-    setSaved(true)
-    setError(null)
+    try {
+      localLeaderboardStore.save({
+        nickname: n,
+        score: stats.score,
+        mode: config.mode,
+        difficulty: config.difficulty,
+        accuracy,
+        questionsAnswered: stats.questionsAnswered,
+        bestStreak: stats.bestStreak,
+      })
+      setSaved(true)
+      setError(null)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : nicknameFilterMessage())
+    }
   }
 
   return (
@@ -76,14 +81,17 @@ export function GameOverScreen({
       {!saved ? (
         <div className="mb-6">
           <label htmlFor="nickname" className="block text-[#8a9bb8] text-xl mb-2">
-            Nickname for leaderboard (max 12 chars, no email)
+            Nickname for leaderboard (max 12 chars, school-appropriate only)
           </label>
           <input
             id="nickname"
             type="text"
             maxLength={12}
             value={nickname}
-            onChange={(e) => setNickname(e.target.value)}
+            onChange={(e) => {
+              setNickname(e.target.value)
+              if (error) setError(null)
+            }}
             className="w-full text-center text-2xl py-3 bg-[#0a0e1a] border-4 border-[#2a3558] focus:border-[#5ef0ff] outline-none"
             placeholder="Your nickname"
           />
