@@ -28,7 +28,7 @@ Open the URL shown in the terminal (usually `http://localhost:5173`).
 - Six conversion modes plus **Mixed Mode**
 - Difficulty: Easy (hints + place values), Medium, Hard (1.5× score)
 - 8-bit only: binary `00000000`–`11111111`, denary 0–255, hex `00`–`FF`
-- Local nickname leaderboard (no email) with teacher reset
+- Local nickname leaderboard (no email)
 - Keyboard: bits `1`–`8` / `Q`–`I`, Enter submit, Backspace clear
 
 ## Project layout
