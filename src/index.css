@@ -1,0 +1,458 @@
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap');
+@import 'tailwindcss';
+
+@theme {
+  --font-pixel: 'Press Start 2P', 'Courier New', monospace;
+  --font-body: 'VT323', 'Courier New', monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  font-family: var(--font-body);
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  background: #1a1a2e;
+  color: #dfe6e9;
+  overflow-x: hidden;
+}
+
+#root {
+  min-height: 100dvh;
+}
+
+.font-pixel {
+  font-family: var(--font-pixel);
+  line-height: 1.6;
+}
+
+.font-body {
+  font-family: var(--font-body);
+}
+
+/* CRT scanlines on cabinet screen only */
+.crt-overlay {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 50;
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(0, 0, 0, 0.1) 0px,
+    rgba(0, 0, 0, 0.1) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+  opacity: 0.25;
+}
+
+.arcade-cabinet-wrap {
+  background: radial-gradient(ellipse at center, #2d3436 0%, #1a1a2e 70%);
+}
+
+.arcade-cabinet {
+  image-rendering: pixelated;
+}
+
+/* Playfield ~60%+ of cabinet; controls capped */
+.cabinet-layout {
+  display: grid;
+  grid-template-rows: auto minmax(52vh, 1fr) auto auto;
+  min-height: 0;
+}
+
+.cabinet-layout > .playfield-main {
+  grid-row: 2;
+}
+
+.controls-panel {
+  grid-row: 3;
+}
+
+.bunker-section {
+  grid-row: 4;
+}
+
+.invader-slot {
+  filter: drop-shadow(0 6px 0 rgba(0, 0, 0, 0.35));
+}
+
+.question-banner {
+  z-index: 25;
+}
+
+.invader-value-tag {
+  border: 3px solid #ffe566;
+}
+
+/* Sky + mountains (screenshot-inspired) */
+.arcade-sky {
+  background: linear-gradient(180deg, #0d1b2a 0%, #1b3a4b 55%, #2d6a6f 85%, #1e4d48 100%);
+}
+
+.starfield {
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(1px 1px at 12% 15%, #fff9 50%, transparent),
+    radial-gradient(1px 1px at 55% 8%, #fff7 50%, transparent),
+    radial-gradient(1.5px 1.5px at 78% 22%, #ffe56688 50%, transparent),
+    radial-gradient(1px 1px at 33% 45%, #fff6 50%, transparent),
+    radial-gradient(1px 1px at 88% 55%, #fff8 50%, transparent);
+  animation: drift-stars 30s linear infinite;
+}
+
+.mountain-line {
+  position: absolute;
+  bottom: 12%;
+  left: 0;
+  right: 0;
+  height: 40px;
+  background: linear-gradient(180deg, transparent, #1e4d48 30%);
+  clip-path: polygon(
+    0% 100%,
+    5% 40%,
+    12% 70%,
+    20% 30%,
+    28% 60%,
+    38% 20%,
+    48% 55%,
+    58% 25%,
+    68% 50%,
+    78% 15%,
+    88% 45%,
+    95% 35%,
+    100% 100%
+  );
+  opacity: 0.9;
+}
+
+@keyframes drift-stars {
+  to {
+    background-position: 200px 400px;
+  }
+}
+
+.enemy-drop {
+  animation: enemy-bob 0.5s ease-in-out infinite alternate;
+}
+
+@keyframes enemy-bob {
+  from {
+    transform: translate(-50%, 0) rotate(-2deg);
+  }
+  to {
+    transform: translate(-50%, 4px) rotate(2deg);
+  }
+}
+
+.hex-bug {
+  animation: enemy-bob 0.4s ease-in-out infinite alternate;
+}
+
+@keyframes bit-flip {
+  50% {
+    transform: scaleY(0.15);
+  }
+}
+
+.bit-flip {
+  animation: bit-flip 0.15s ease;
+}
+
+.rocket-launch {
+  animation: rocket-up 0.4s ease-out forwards;
+}
+
+@keyframes rocket-up {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-48px);
+  }
+}
+
+/* Missiles: defense line → invader */
+.missile-flight {
+  position: absolute;
+  left: var(--start-x);
+  top: 88%;
+  animation: missile-to-target var(--duration) ease-in var(--delay) forwards;
+  will-change: left, top, transform;
+}
+
+@keyframes missile-to-target {
+  0% {
+    left: var(--start-x);
+    top: 88%;
+    transform: translate(-50%, 0) rotate(0deg);
+    opacity: 1;
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    left: var(--end-x);
+    top: var(--end-y);
+    transform: translate(-50%, -50%) rotate(0deg);
+    opacity: 0;
+  }
+}
+
+.missile-sprite {
+  filter: drop-shadow(0 0 2px #f39c12);
+}
+
+.explosion-fx {
+  width: 0;
+  height: 0;
+}
+
+.explosion-flash {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 96px;
+  height: 96px;
+  margin: -48px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #fff9c4 0%, #ffe566 25%, #f39c12 50%, transparent 72%);
+  animation: explosion-flash 0.55s ease-out forwards;
+}
+
+.explosion-core {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 24px;
+  height: 24px;
+  margin: -12px;
+  background: #fff;
+  border: 3px solid #e74c3c;
+  animation: explosion-core 0.45s ease-out forwards;
+}
+
+@keyframes explosion-flash {
+  0% {
+    transform: scale(0.2);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.2);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+}
+
+@keyframes explosion-core {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(3);
+    opacity: 0;
+  }
+}
+
+.explosion-burst-visible {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+}
+
+.explosion-particle {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 10px;
+  height: 10px;
+  margin: -5px;
+  background: #ffe566;
+  border: 2px solid #e74c3c;
+  box-shadow: 1px 1px 0 #1a1a1a;
+  animation: particle-fly 0.65s ease-out forwards;
+}
+
+.explosion-particle:nth-child(odd) {
+  background: #f39c12;
+}
+
+.explosion-particle:nth-child(3n) {
+  background: #ff7675;
+  width: 8px;
+  height: 8px;
+}
+
+@keyframes particle-fly {
+  0% {
+    transform: rotate(var(--angle)) translateY(0);
+    opacity: 1;
+  }
+  100% {
+    transform: rotate(var(--angle)) translateY(-42px);
+    opacity: 0;
+  }
+}
+
+.kaboom-label {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  margin: 0;
+  transform: translate(-50%, -50%);
+  animation: kaboom-pop 1.3s ease-out forwards;
+  text-shadow:
+    3px 3px 0 #d63031,
+    -1px -1px 0 #1a1a1a;
+  white-space: nowrap;
+  z-index: 2;
+}
+
+@keyframes kaboom-pop {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.4);
+  }
+  12% {
+    opacity: 1;
+    transform: translate(-50%, -55%) scale(1.35);
+  }
+  55% {
+    opacity: 1;
+    transform: translate(-50%, -58%) scale(1.1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -70%) scale(1.05);
+  }
+}
+
+@keyframes explode {
+  to {
+    transform: scale(2.5);
+    opacity: 0;
+  }
+}
+
+.explode {
+  animation: explode 0.45s ease-out forwards;
+}
+
+.blast-text {
+  animation: score-pop 0.8s ease-out forwards;
+  text-shadow: 3px 3px 0 #d63031;
+}
+
+@keyframes shake {
+  20%,
+  60% {
+    transform: translateX(-6px);
+  }
+  40%,
+  80% {
+    transform: translateX(6px);
+  }
+}
+
+.screen-shake {
+  animation: shake 0.35s ease;
+}
+
+@keyframes score-pop {
+  to {
+    transform: translateY(-30px) scale(1.3);
+    opacity: 0;
+  }
+}
+
+.score-pop {
+  animation: score-pop 0.8s ease-out forwards;
+}
+
+.bit-bot-float {
+  animation: float-bot 2s ease-in-out infinite;
+}
+
+@keyframes float-bot {
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+/* Bunker */
+.bunker-section {
+  background: linear-gradient(180deg, #6b4423 0%, #5c3d2e 40%, #3d2914 100%);
+  box-shadow: inset 0 8px 0 #8b6914;
+}
+
+.title-panel {
+  background: linear-gradient(180deg, #1b3a4b, #0d1b2a);
+  border: 6px solid #636e72;
+  box-shadow: 8px 8px 0 #1a1a1a;
+}
+
+.rules-panel {
+  background: #3d2914;
+  border: 4px solid #5c3d2e;
+}
+
+.fire-btn {
+  background: linear-gradient(180deg, #ffe566, #f39c12);
+  color: #3d2914;
+  border: 4px solid #1a1a1a;
+  box-shadow: 4px 4px 0 #1a1a1a;
+}
+
+.fire-btn:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+
+.fire-btn:active:not(:disabled) {
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0 #1a1a1a;
+}
+
+.pixel-border {
+  border: 4px solid #1a1a1a;
+  box-shadow: 4px 4px 0 #0006;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bit-flip,
+  .enemy-drop,
+  .hex-bug,
+  .explode,
+  .screen-shake,
+  .score-pop,
+  .bit-bot-float,
+  .starfield,
+  .rocket-launch,
+  .blast-text,
+  .missile-flight,
+  .explosion-flash,
+  .explosion-core,
+  .explosion-particle,
+  .kaboom-label {
+    animation: none !important;
+  }
+  .kaboom-label {
+    opacity: 1;
+  }
+  .crt-overlay {
+    opacity: 0.1;
+  }
+}
