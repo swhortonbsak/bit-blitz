@@ -18,7 +18,14 @@ const MODES: ConversionMode[] = [
   'mixed',
 ]
 
-const DIFFICULTIES: Difficulty[] = ['easy', 'medium', 'hard']
+const DIFFICULTIES: Difficulty[] = ['practice', 'easy', 'medium', 'hard']
+
+const DIFFICULTY_LABELS: Record<Difficulty, string> = {
+  practice: 'Practice',
+  easy: 'Easy',
+  medium: 'Medium',
+  hard: 'Hard',
+}
 
 export function ModeSelector({
   mode,
@@ -60,28 +67,41 @@ export function ModeSelector({
           Difficulty
         </legend>
         <div className="flex flex-wrap justify-center gap-3">
-          {DIFFICULTIES.map((d) => (
-            <label
-              key={d}
-              className={`
-                px-6 py-3 cursor-pointer font-pixel text-[10px] sm:text-xs uppercase pixel-border
-                ${difficulty === d ? 'bg-[#ff6eb4] text-[#0a0e1a]' : 'bg-[#12182b] text-[#ff6eb4]'}
-              `}
-            >
-              <input
-                type="radio"
-                name="difficulty"
-                value={d}
-                checked={difficulty === d}
-                onChange={() => onDifficultyChange(d)}
-                className="sr-only"
-              />
-              {d}
-            </label>
-          ))}
+          {DIFFICULTIES.map((d) => {
+            const isPractice = d === 'practice'
+            const isSelected = difficulty === d
+            return (
+              <label
+                key={d}
+                className={`
+                  px-6 py-3 cursor-pointer font-pixel text-[10px] sm:text-xs uppercase pixel-border
+                  ${isPractice
+                    ? isSelected
+                      ? 'bg-[#2ed573] text-[#0a0e1a]'
+                      : 'bg-[#12182b] text-[#2ed573]'
+                    : isSelected
+                      ? 'bg-[#ff6eb4] text-[#0a0e1a]'
+                      : 'bg-[#12182b] text-[#ff6eb4]'
+                  }
+                `}
+              >
+                <input
+                  type="radio"
+                  name="difficulty"
+                  value={d}
+                  checked={isSelected}
+                  onChange={() => onDifficultyChange(d)}
+                  className="sr-only"
+                />
+                {DIFFICULTY_LABELS[d]}
+              </label>
+            )
+          })}
         </div>
         <p className="text-center text-[#8a9bb8] text-lg mt-2">
-          Easy: slow fall + place values · Hard: fast fall & 1.5× score
+          {difficulty === 'practice'
+            ? 'Practice: invaders freeze · 10pts per answer · no lives lost'
+            : 'Easy: slow fall + place values · Hard: fast fall & 1.5× score'}
         </p>
       </fieldset>
     </div>

@@ -54,6 +54,7 @@ function App() {
 
   useEffect(() => {
     if (!game) return
+    if (game.config.difficulty === 'practice') return
     const hi = updateHighScore(game.stats.score)
     setHighScore(hi)
   }, [game?.stats.score])

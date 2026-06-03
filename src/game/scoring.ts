@@ -16,6 +16,9 @@ export function computeRoundScore(params: {
 }): number {
   const { difficulty, heightRemaining, streak, hintUsedThisRound, wrongAttemptsThisRound } =
     params
+
+  if (difficulty === 'practice') return 10
+
   const config = DIFFICULTY_CONFIG[difficulty]
 
   const speedBonus = Math.round(MAX_SPEED_BONUS * Math.max(0, Math.min(1, heightRemaining)))

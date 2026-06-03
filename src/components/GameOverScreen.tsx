@@ -31,6 +31,7 @@ export function GameOverScreen({
 
   const total = stats.correct + stats.incorrect
   const accuracy = accuracyPercent(stats.correct, total)
+  const isPractice = config.difficulty === 'practice'
 
   const handleSave = async () => {
     const n = filterNickname(nickname)
@@ -82,7 +83,11 @@ export function GameOverScreen({
         <dd>{stats.correct}</dd>
       </dl>
 
-      {!saved ? (
+      {isPractice ? (
+        <p className="text-[#2ed573] text-xl mb-6">
+          Practice mode — scores are not saved to the leaderboard.
+        </p>
+      ) : !saved ? (
         <div className="mb-6">
           <label htmlFor="nickname" className="block text-[#8a9bb8] text-xl mb-2">
             Nickname for leaderboard (max 12 chars, school-appropriate only)

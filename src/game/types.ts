@@ -7,7 +7,7 @@ export type ConversionMode =
   | 'hex-to-denary'
   | 'mixed'
 
-export type Difficulty = 'easy' | 'medium' | 'hard'
+export type Difficulty = 'practice' | 'easy' | 'medium' | 'hard'
 
 export type NumberSystem = 'binary' | 'denary' | 'hex'
 
@@ -89,6 +89,13 @@ export const DIFFICULTY_CONFIG: Record<
     spawnGap: number
   }
 > = {
+  practice: {
+    hintsEnabled: true,
+    showPlaceValues: true,
+    fallSpeed: 0,
+    scoreMultiplier: 1,
+    spawnGap: 1.5,
+  },
   easy: {
     hintsEnabled: true,
     showPlaceValues: true,

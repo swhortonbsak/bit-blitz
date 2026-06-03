@@ -83,7 +83,16 @@ export function tickGame(state: GameState, deltaSec: number): GameState {
   let next: GameState = { ...state, sessionTimeLeft, threat, shake: false }
 
   if (sessionTimeLeft <= 0) {
-    return endRound(next, false, 'Session over!')
+    // Go directly to game over — avoids re-triggering on subsequent ticks
+    return {
+      ...next,
+      sessionTimeLeft: 0,
+      phase: 'gameover',
+      feedbackMessage: 'Session over!',
+      feedbackCorrect: false,
+      lastScoreDelta: null,
+      shake: false,
+    }
   }
 
   if (threat.progress >= BREACH_PROGRESS) {
@@ -140,17 +149,18 @@ function endRound(state: GameState, correct: boolean, message: string): GameStat
     questionsAnswered: stats.questionsAnswered + 1,
   }
 
-  const phase = lives <= 0 ? 'gameover' : 'feedback'
+  const isPractice = state.config.difficulty === 'practice'
+  const phase = !isPractice && lives <= 0 ? 'gameover' : 'feedback'
   return {
     ...state,
     phase,
     stats,
-    lives,
+    lives: isPractice ? state.lives : lives,
     feedbackCorrect: false,
     feedbackMessage: message,
     lastScoreDelta: null,
     threat: null,
-    shake: true,
+    shake: !isPractice,
   }
 }
 
