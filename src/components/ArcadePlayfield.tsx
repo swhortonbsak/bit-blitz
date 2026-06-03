@@ -75,7 +75,7 @@ export function ArcadePlayfield({
         const showInvader =
           !hideInvaders && (phase === 'playing' || threat.exploding)
         if (!showInvader) return null
-        const invaderLabel = formatInvaderLabel(threat.displayValue, question.sourceType)
+        const invaderLabel = formatInvaderLabel(threat.displayValue, threat.question.sourceType)
         const progress = threat.progress
         return (
           <div

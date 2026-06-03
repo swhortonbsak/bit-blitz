@@ -32,12 +32,12 @@ const BREACH_PROGRESS = 1
 const MIN_ANSWER_MS = 300
 
 export function createInitialState(config: GameConfig): GameState {
-  const question = generateQuestion(config.mode, config.difficulty)
   const diff = DIFFICULTY_CONFIG[config.difficulty]
+  const { threats, primaryQuestion } = createThreats(config, diff.threatCount)
   return {
     phase: 'playing',
     config,
-    question,
+    question: primaryQuestion,
     stats: {
       score: 0,
       streak: 0,
@@ -54,7 +54,7 @@ export function createInitialState(config: GameConfig): GameState {
     hintVisible: false,
     hintUsedThisRound: false,
     wrongAttemptsThisRound: 0,
-    threats: createThreats(question, diff.threatCount),
+    threats,
     questionSpawnedAt: Date.now(),
     feedbackMessage: null,
     feedbackCorrect: null,
@@ -63,41 +63,40 @@ export function createInitialState(config: GameConfig): GameState {
   }
 }
 
-export function createThreat(question: Question): Threat {
+export function createThreat(question: Question, x?: number): Threat {
   return {
     id: `t-${question.id}`,
-    questionId: question.id,
+    question,
     displayValue: question.sourceValue,
     displayType: question.sourceType,
-    x: 15 + Math.random() * 70,
+    x: x ?? 15 + Math.random() * 70,
     progress: 0,
     exploding: false,
   }
 }
 
-function createThreats(question: Question, count: number): Threat[] {
-  if (count <= 1) return [createThreat(question)]
-  // Two threats for insane mode — spread across the sky at fixed x so they never overlap
-  return [
-    {
-      id: `t-${question.id}-a`,
-      questionId: question.id,
-      displayValue: question.sourceValue,
-      displayType: question.sourceType,
-      x: 20,
-      progress: 0,
-      exploding: false,
-    },
-    {
-      id: `t-${question.id}-b`,
-      questionId: question.id,
-      displayValue: question.sourceValue,
-      displayType: question.sourceType,
-      x: 68,
-      progress: 0,
-      exploding: false,
-    },
+function createThreats(
+  config: GameConfig,
+  count: number,
+  firstQuestion?: Question,
+): { threats: Threat[]; primaryQuestion: Question } {
+  if (count <= 1) {
+    const question = firstQuestion ?? generateQuestion(config.mode, config.difficulty)
+    return { threats: [createThreat(question)], primaryQuestion: question }
+  }
+  // Insane mode — two threats with independent questions at fixed x positions
+  const qA = firstQuestion ?? generateQuestion(config.mode, config.difficulty)
+  let qB = generateQuestion(config.mode, config.difficulty)
+  // Ensure the two bugs don't happen to show the same source value
+  let attempts = 0
+  while (qB.sourceValue === qA.sourceValue && attempts++ < 10) {
+    qB = generateQuestion(config.mode, config.difficulty)
+  }
+  const threats: Threat[] = [
+    { ...createThreat(qA), id: `t-${qA.id}-a`, x: 20 },
+    { ...createThreat(qB), id: `t-${qB.id}-b`, x: 68 },
   ]
+  return { threats, primaryQuestion: qA }
 }
 
 /** Returns the most-advanced (lowest on screen) active threat, used for targeting */
@@ -173,6 +172,8 @@ function endRound(state: GameState, correct: boolean, message: string): GameStat
       correct: stats.correct + 1,
       questionsAnswered: stats.questionsAnswered + 1,
     }
+    // Only explode the primary threat — survivors keep falling (frozen during feedback)
+    const primaryId = primary?.id
     return {
       ...state,
       phase: 'feedback',
@@ -181,8 +182,9 @@ function endRound(state: GameState, correct: boolean, message: string): GameStat
       feedbackCorrect: true,
       feedbackMessage: message,
       lastScoreDelta: delta,
-      // All threats explode together
-      threats: state.threats.map((t) => ({ ...t, exploding: true })),
+      threats: state.threats.map((t) =>
+        t.id === primaryId ? { ...t, exploding: true } : t,
+      ),
       shake: false,
     }
   }
@@ -293,8 +295,31 @@ export function fireAnswer(
 export function advanceRound(state: GameState): GameState {
   if (state.phase === 'gameover') return state
 
-  const question = generateQuestion(state.config.mode, state.config.difficulty)
   const diff = DIFFICULTY_CONFIG[state.config.difficulty]
+
+  // Keep threats that survived (not exploding) — they carry their current progress
+  const survivors = state.threats.filter((t) => !t.exploding)
+
+  // Fill up to threatCount with fresh threats at unoccupied x positions
+  const allXPositions = diff.threatCount === 2 ? [20, 68] : []
+  const occupiedX = new Set(survivors.map((t) => t.x))
+  const freeXPositions = allXPositions.filter((x) => !occupiedX.has(x))
+
+  const newThreats = [...survivors]
+  let freeIdx = 0
+  while (newThreats.length < diff.threatCount) {
+    const q = generateQuestion(state.config.mode, state.config.difficulty)
+    const xPos =
+      freeIdx < freeXPositions.length
+        ? freeXPositions[freeIdx++]
+        : 15 + Math.random() * 70
+    const suffix = newThreats.length === 0 ? 'a' : 'b'
+    newThreats.push({ ...createThreat(q, xPos), id: `t-${q.id}-${suffix}` })
+  }
+
+  // The primary (most advanced) threat's question is what the player answers next
+  const primary = getPrimaryThreat(newThreats)
+  const question = primary?.question ?? generateQuestion(state.config.mode, state.config.difficulty)
 
   return {
     ...state,
@@ -305,7 +330,7 @@ export function advanceRound(state: GameState): GameState {
     hintVisible: false,
     hintUsedThisRound: false,
     wrongAttemptsThisRound: 0,
-    threats: createThreats(question, diff.threatCount),
+    threats: newThreats,
     questionSpawnedAt: Date.now(),
     feedbackMessage: null,
     feedbackCorrect: null,

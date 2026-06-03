@@ -60,7 +60,7 @@ export interface GameStats {
 /** Falling invader — displays the value students must convert */
 export interface Threat {
   id: string
-  questionId: string
+  question: Question
   displayValue: string
   displayType: NumberSystem
   x: number
