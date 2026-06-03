@@ -1,4 +1,4 @@
-import type { GameStats, Question, Threat } from '../game/types'
+import type { GameStats, Threat } from '../game/types'
 import { MODE_LABELS } from '../game/types'
 import type { ConversionMode, Difficulty } from '../game/types'
 import { SoundToggle } from './SoundToggle'
@@ -7,24 +7,25 @@ interface GameHUDProps {
   stats: GameStats
   lives: number
   sessionTimeLeft: number
+  timerEnabled: boolean
   mode: ConversionMode
   difficulty: Difficulty
   lastScoreDelta: number | null
-  threat: Threat | null
-  question?: Question
+  threats: Threat[]
 }
 
 export function GameHUD({
   stats,
   lives,
   sessionTimeLeft,
+  timerEnabled,
   mode,
   difficulty,
   lastScoreDelta,
-  threat,
-  question,
+  threats,
 }: GameHUDProps) {
-  const fallPct = threat ? Math.round(threat.progress * 100) : 0
+  const primaryProgress = threats.reduce((max, t) => Math.max(max, t.progress), 0)
+  const fallPct = Math.round(primaryProgress * 100)
   const isPractice = difficulty === 'practice'
 
   return (
@@ -73,19 +74,18 @@ export function GameHUD({
               FALL {fallPct}%
             </span>
           )}
-          <span className="font-pixel text-[#74b9ff] text-[8px]">
-            {Math.floor(sessionTimeLeft / 60)}:
-            {String(Math.ceil(sessionTimeLeft % 60)).padStart(2, '0')}
-          </span>
+          {timerEnabled ? (
+            <span className="font-pixel text-[#74b9ff] text-[8px]">
+              {Math.floor(sessionTimeLeft / 60)}:
+              {String(Math.ceil(sessionTimeLeft % 60)).padStart(2, '0')}
+            </span>
+          ) : (
+            <span className="font-pixel text-[#74b9ff] text-[8px]">∞ UNTIMED</span>
+          )}
         </div>
         <SoundToggle compact />
       </div>
 
-      {question && (
-        <p className="w-full text-center font-pixel text-[#74b9ff] text-[7px] sm:text-[8px] truncate sm:hidden">
-          {question.sourceLabel}: {question.sourceValue} → {question.targetLabel}
-        </p>
-      )}
       {!isPractice && (
         <p className="w-full text-center font-pixel text-[#ffe566] text-[7px] sm:hidden">
           FALL {fallPct}%

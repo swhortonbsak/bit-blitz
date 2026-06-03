@@ -17,6 +17,7 @@ import {
   fireAnswer,
   flipBit,
   getCurrentAnswer,
+  getPrimaryThreat,
   setTypedAnswer,
   tickGame,
   toggleHint,
@@ -35,6 +36,7 @@ function App() {
   const [screen, setScreen] = useState<AppScreen>('start')
   const [selectedMode, setSelectedMode] = useState<ConversionMode>('hex-to-binary')
   const [selectedDifficulty, setSelectedDifficulty] = useState<Difficulty>('easy')
+  const [timerEnabled, setTimerEnabled] = useState(true)
   const [game, setGame] = useState<GameState | null>(null)
   const [highScore, setHighScore] = useState(getHighScore)
   const [missileStrike, setMissileStrike] = useState<MissileStrikeState | null>(null)
@@ -48,9 +50,9 @@ function App() {
   const startGame = useCallback(() => {
     unlock()
     play('start')
-    setGame(createInitialState({ mode: selectedMode, difficulty: selectedDifficulty }))
+    setGame(createInitialState({ mode: selectedMode, difficulty: selectedDifficulty, timerEnabled }))
     setScreen('playing')
-  }, [selectedMode, selectedDifficulty, play, unlock])
+  }, [selectedMode, selectedDifficulty, timerEnabled, play, unlock])
 
   useEffect(() => {
     if (!game) return
@@ -115,9 +117,12 @@ function App() {
       key: Date.now(),
     })
     setMissileStrike(null)
+    // Pass submittedAt so fireAnswer in engine can skip the timing check for
+    // missile-triggered commits (timing was already checked in handleFire)
+    const submittedAt = (strike as MissileStrikeState & { submittedAt?: number }).submittedAt
     setGame((g) => {
       if (!g) return g
-      return fireAnswer(g, true)
+      return fireAnswer(g, true, submittedAt)
     })
     window.setTimeout(() => {
       setExplosionFx(null)
@@ -134,16 +139,23 @@ function App() {
     if (q.targetType === 'denary' && !/^\d{1,3}$/.test(answer)) return
     if (q.targetType === 'hex' && answer.length !== 2) return
 
+    // Anti-cheat: reject answers fired impossibly fast after the question spawned
+    const elapsed = Date.now() - game.questionSpawnedAt
+    if (elapsed < 300) return
+
     play('fire')
     const correct = validateAnswer(q, answer)
 
-    if (correct && game.threat) {
+    const primary = getPrimaryThreat(game.threats)
+    if (correct && primary) {
       missilesBusy.current = true
-      setMissileStrike({ ...getThreatPosition(game.threat), key: Date.now() })
+      const now = Date.now()
+      const strike = { ...getThreatPosition(primary), key: now, submittedAt: now }
+      setMissileStrike(strike as MissileStrikeState)
       return
     }
 
-    setGame((g) => (g ? fireAnswer(g, correct) : g))
+    setGame((g) => (g ? fireAnswer(g, correct, Date.now()) : g))
   }, [game, play])
 
   useEffect(() => {
@@ -195,9 +207,11 @@ function App() {
         <StartScreen
           mode={selectedMode}
           difficulty={selectedDifficulty}
+          timerEnabled={timerEnabled}
           highScore={highScore}
           onModeChange={setSelectedMode}
           onDifficultyChange={setSelectedDifficulty}
+          onTimerToggle={() => setTimerEnabled((t) => !t)}
           onPlay={startGame}
           onLeaderboard={() => setScreen('leaderboard')}
         />
@@ -236,15 +250,15 @@ function App() {
         stats={game.stats}
         lives={game.lives}
         sessionTimeLeft={game.sessionTimeLeft}
+        timerEnabled={game.config.timerEnabled}
         mode={game.config.mode}
         difficulty={game.config.difficulty}
         lastScoreDelta={game.lastScoreDelta}
-        threat={game.threat}
-        question={game.question}
+        threats={game.threats}
       />
 
       <ArcadePlayfield
-        threat={game.threat}
+        threats={game.threats}
         question={game.question}
         phase={game.phase}
         highScore={highScore}

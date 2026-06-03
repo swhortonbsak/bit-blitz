@@ -17,7 +17,8 @@ export interface GameState {
   hintVisible: boolean
   hintUsedThisRound: boolean
   wrongAttemptsThisRound: number
-  threat: Threat | null
+  threats: Threat[]
+  questionSpawnedAt: number
   feedbackMessage: string | null
   feedbackCorrect: boolean | null
   lastScoreDelta: number | null
@@ -27,9 +28,12 @@ export interface GameState {
 const MAX_LIVES = 3
 const SESSION_TIME_SEC = 300
 const BREACH_PROGRESS = 1
+/** Minimum ms between question spawn and valid answer fire — prevents scripted instant answers */
+const MIN_ANSWER_MS = 300
 
 export function createInitialState(config: GameConfig): GameState {
   const question = generateQuestion(config.mode, config.difficulty)
+  const diff = DIFFICULTY_CONFIG[config.difficulty]
   return {
     phase: 'playing',
     config,
@@ -50,7 +54,8 @@ export function createInitialState(config: GameConfig): GameState {
     hintVisible: false,
     hintUsedThisRound: false,
     wrongAttemptsThisRound: 0,
-    threat: createThreat(question),
+    threats: createThreats(question, diff.threatCount),
+    questionSpawnedAt: Date.now(),
     feedbackMessage: null,
     feedbackCorrect: null,
     lastScoreDelta: null,
@@ -70,20 +75,56 @@ export function createThreat(question: Question): Threat {
   }
 }
 
+function createThreats(question: Question, count: number): Threat[] {
+  if (count <= 1) return [createThreat(question)]
+  // Two threats for insane mode — spread across the sky at fixed x so they never overlap
+  return [
+    {
+      id: `t-${question.id}-a`,
+      questionId: question.id,
+      displayValue: question.sourceValue,
+      displayType: question.sourceType,
+      x: 20,
+      progress: 0,
+      exploding: false,
+    },
+    {
+      id: `t-${question.id}-b`,
+      questionId: question.id,
+      displayValue: question.sourceValue,
+      displayType: question.sourceType,
+      x: 68,
+      progress: 0,
+      exploding: false,
+    },
+  ]
+}
+
+/** Returns the most-advanced (lowest on screen) active threat, used for targeting */
+export function getPrimaryThreat(threats: Threat[]): Threat | null {
+  const active = threats.filter((t) => !t.exploding)
+  if (active.length === 0) return null
+  return active.reduce((a, b) => (a.progress >= b.progress ? a : b))
+}
+
 export function tickGame(state: GameState, deltaSec: number): GameState {
-  if (state.phase !== 'playing' || !state.threat) return state
+  if (state.phase !== 'playing' || state.threats.length === 0) return state
 
   const diff = DIFFICULTY_CONFIG[state.config.difficulty]
-  let sessionTimeLeft = Math.max(0, state.sessionTimeLeft - deltaSec)
-  let threat: Threat = {
-    ...state.threat,
-    progress: state.threat.progress + diff.fallSpeed * deltaSec,
-  }
 
-  let next: GameState = { ...state, sessionTimeLeft, threat, shake: false }
+  // Only tick the session timer when enabled
+  const sessionTimeLeft = state.config.timerEnabled
+    ? Math.max(0, state.sessionTimeLeft - deltaSec)
+    : state.sessionTimeLeft
 
-  if (sessionTimeLeft <= 0) {
-    // Go directly to game over — avoids re-triggering on subsequent ticks
+  const threats: Threat[] = state.threats.map((t) => ({
+    ...t,
+    progress: t.progress + diff.fallSpeed * deltaSec,
+  }))
+
+  let next: GameState = { ...state, sessionTimeLeft, threats, shake: false }
+
+  if (state.config.timerEnabled && sessionTimeLeft <= 0) {
     return {
       ...next,
       sessionTimeLeft: 0,
@@ -95,7 +136,9 @@ export function tickGame(state: GameState, deltaSec: number): GameState {
     }
   }
 
-  if (threat.progress >= BREACH_PROGRESS) {
+  // Breach if any threat reaches the launchpad line
+  const breached = threats.find((t) => t.progress >= BREACH_PROGRESS)
+  if (breached) {
     return endRound(
       next,
       false,
@@ -111,7 +154,9 @@ function endRound(state: GameState, correct: boolean, message: string): GameStat
   let stats = { ...state.stats }
 
   if (correct) {
-    const heightRemaining = state.threat ? 1 - state.threat.progress : 0.5
+    // Score based on the most advanced threat (highest pressure = best bonus)
+    const primary = getPrimaryThreat(state.threats)
+    const heightRemaining = primary ? 1 - primary.progress : 0.5
     const delta = computeRoundScore({
       difficulty: state.config.difficulty,
       heightRemaining,
@@ -136,7 +181,8 @@ function endRound(state: GameState, correct: boolean, message: string): GameStat
       feedbackCorrect: true,
       feedbackMessage: message,
       lastScoreDelta: delta,
-      threat: state.threat ? { ...state.threat, exploding: true } : null,
+      // All threats explode together
+      threats: state.threats.map((t) => ({ ...t, exploding: true })),
       shake: false,
     }
   }
@@ -159,7 +205,7 @@ function endRound(state: GameState, correct: boolean, message: string): GameStat
     feedbackCorrect: false,
     feedbackMessage: message,
     lastScoreDelta: null,
-    threat: null,
+    threats: [],
     shake: !isPractice,
   }
 }
@@ -204,8 +250,23 @@ function tryAutoBlast(state: GameState): GameState {
   return state
 }
 
-export function fireAnswer(state: GameState, isCorrect: boolean): GameState {
+export function fireAnswer(
+  state: GameState,
+  isCorrect: boolean,
+  submittedAt?: number,
+): GameState {
   if (state.phase !== 'playing') return state
+
+  // Anti-cheat: reject impossibly fast answers (< MIN_ANSWER_MS since question spawned)
+  const elapsed = (submittedAt ?? Date.now()) - state.questionSpawnedAt
+  if (elapsed < MIN_ANSWER_MS) {
+    return {
+      ...state,
+      shake: true,
+      feedbackMessage: '⚠ Answer too fast — keep it fair!',
+      feedbackCorrect: null,
+    }
+  }
 
   if (isCorrect) {
     return endRound(state, true, 'BLAST! Invader destroyed!')
@@ -233,6 +294,7 @@ export function advanceRound(state: GameState): GameState {
   if (state.phase === 'gameover') return state
 
   const question = generateQuestion(state.config.mode, state.config.difficulty)
+  const diff = DIFFICULTY_CONFIG[state.config.difficulty]
 
   return {
     ...state,
@@ -243,7 +305,8 @@ export function advanceRound(state: GameState): GameState {
     hintVisible: false,
     hintUsedThisRound: false,
     wrongAttemptsThisRound: 0,
-    threat: createThreat(question),
+    threats: createThreats(question, diff.threatCount),
+    questionSpawnedAt: Date.now(),
     feedbackMessage: null,
     feedbackCorrect: null,
     lastScoreDelta: null,

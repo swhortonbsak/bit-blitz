@@ -9,7 +9,7 @@ export type MissileStrikeState = MissileStrikeTarget & { key: number }
 export type ExplosionFxState = MissileStrikeTarget & { key: number }
 
 interface ArcadePlayfieldProps {
-  threat: Threat | null
+  threats: Threat[]
   question: Question
   phase: string
   highScore: number
@@ -36,7 +36,7 @@ export function getThreatPosition(threat: Threat): MissileStrikeTarget {
 }
 
 export function ArcadePlayfield({
-  threat,
+  threats,
   question,
   phase,
   highScore,
@@ -44,13 +44,7 @@ export function ArcadePlayfield({
   explosionFx,
   onMissileImpact,
 }: ArcadePlayfieldProps) {
-  const progress = threat?.progress ?? 0
-  const invaderLabel = formatInvaderLabel(
-    threat?.displayValue ?? question.sourceValue,
-    question.sourceType,
-  )
-  const hideInvader = !!explosionFx
-  const showInvader = threat && !hideInvader && (phase === 'playing' || threat.exploding)
+  const hideInvaders = !!explosionFx
 
   return (
     <div className="arcade-sky playfield-main relative flex-1 min-h-[52vh] sm:min-h-[58vh] overflow-hidden">
@@ -77,36 +71,44 @@ export function ArcadePlayfield({
         <ExplosionEffect key={explosionFx.key} x={explosionFx.targetX} y={explosionFx.targetY} />
       )}
 
-      {showInvader && (
-        <div
-          className="absolute z-30 flex flex-col items-center invader-slot enemy-drop"
-          style={{
-            left: `${threat.x}%`,
-            top: `${22 + progress * 62}%`,
-            transform: 'translate(-50%, 0)',
-          }}
-        >
+      {threats.map((threat) => {
+        const showInvader =
+          !hideInvaders && (phase === 'playing' || threat.exploding)
+        if (!showInvader) return null
+        const invaderLabel = formatInvaderLabel(threat.displayValue, question.sourceType)
+        const progress = threat.progress
+        return (
           <div
-            className="invader-value-tag mb-1 px-3 py-1 bg-[#1a1a1a] border-3 border-[#ffe566] shadow-[3px_3px_0_#000]"
-            aria-hidden
+            key={threat.id}
+            className="absolute z-30 flex flex-col items-center invader-slot enemy-drop"
+            style={{
+              left: `${threat.x}%`,
+              top: `${22 + progress * 62}%`,
+              transform: 'translate(-50%, 0)',
+            }}
           >
-            <span className="font-pixel text-sm sm:text-base text-[#ffe566] tracking-widest whitespace-nowrap">
-              {invaderLabel}
-            </span>
+            <div
+              className="invader-value-tag mb-1 px-3 py-1 bg-[#1a1a1a] border-3 border-[#ffe566] shadow-[3px_3px_0_#000]"
+              aria-hidden
+            >
+              <span className="font-pixel text-sm sm:text-base text-[#ffe566] tracking-widest whitespace-nowrap">
+                {invaderLabel}
+              </span>
+            </div>
+            <RetroFallingSprite
+              type={threat.displayType}
+              value={threat.displayValue}
+              scale={INVADER_SCALE}
+            />
           </div>
-          <RetroFallingSprite
-            type={threat.displayType}
-            value={threat.displayValue}
-            scale={INVADER_SCALE}
-          />
-        </div>
-      )}
+        )
+      })}
 
       <div className="launchpad-rail absolute bottom-0 left-0 right-0 z-20" aria-hidden>
         <div className="h-1.5 bg-[#636e72] border-t-4 border-[#b2bec3]" />
       </div>
 
-      {!threat && phase === 'playing' && !missileStrike && !explosionFx && (
+      {threats.length === 0 && phase === 'playing' && !missileStrike && !explosionFx && (
         <p className="absolute inset-0 flex items-center justify-center font-pixel text-[#74b9ff] text-xs z-10">
           INCOMING…
         </p>

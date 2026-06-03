@@ -6,9 +6,11 @@ import type { ConversionMode, Difficulty } from '../game/types'
 interface StartScreenProps {
   mode: ConversionMode
   difficulty: Difficulty
+  timerEnabled: boolean
   highScore: number
   onModeChange: (m: ConversionMode) => void
   onDifficultyChange: (d: Difficulty) => void
+  onTimerToggle: () => void
   onPlay: () => void
   onLeaderboard: () => void
 }
@@ -16,9 +18,11 @@ interface StartScreenProps {
 export function StartScreen({
   mode,
   difficulty,
+  timerEnabled,
   highScore,
   onModeChange,
   onDifficultyChange,
+  onTimerToggle,
   onPlay,
   onLeaderboard,
 }: StartScreenProps) {
@@ -60,8 +64,10 @@ export function StartScreen({
       <ModeSelector
         mode={mode}
         difficulty={difficulty}
+        timerEnabled={timerEnabled}
         onModeChange={onModeChange}
         onDifficultyChange={onDifficultyChange}
+        onTimerToggle={onTimerToggle}
       />
 
       <div className="flex flex-col sm:flex-row gap-4 justify-center mt-8">

@@ -95,6 +95,7 @@ export function Leaderboard({ onBack }: LeaderboardProps) {
             <option value="easy">Easy</option>
             <option value="medium">Medium</option>
             <option value="hard">Hard</option>
+            <option value="insane">Insane</option>
           </select>
         </label>
       </div>

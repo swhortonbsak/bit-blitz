@@ -9,6 +9,37 @@
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      // Anti-cheat: disable React DevTools inspector so game state cannot be
+      // manipulated via the Components panel, and warn against console cheating.
+      (function () {
+        if (typeof window.__REACT_DEVTOOLS_GLOBAL_HOOK__ === 'object') {
+          for (var k in window.__REACT_DEVTOOLS_GLOBAL_HOOK__) {
+            try {
+              window.__REACT_DEVTOOLS_GLOBAL_HOOK__[k] =
+                typeof window.__REACT_DEVTOOLS_GLOBAL_HOOK__[k] === 'function'
+                  ? function () {}
+                  : null;
+            } catch (_) {}
+          }
+        }
+        var _warn = console.warn.bind(console);
+        var banner = [
+          '%c⚠ Bit Blitz Anti-Cheat',
+          'color:#ff2d55;font-size:18px;font-weight:bold',
+          '\nGame state is managed inside React and is not accessible from the console.\n' +
+          'Attempting to manipulate the game will void your score.',
+        ];
+        setTimeout(function () {
+          console.warn.apply(console, banner);
+        }, 800);
+        console.warn = function () {
+          if (arguments[0] === banner[0]) {
+            Function.prototype.apply.call(_warn, console, arguments);
+          }
+        };
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

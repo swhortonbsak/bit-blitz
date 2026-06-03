@@ -4,8 +4,10 @@ import { MODE_LABELS } from '../game/types'
 interface ModeSelectorProps {
   mode: ConversionMode
   difficulty: Difficulty
+  timerEnabled: boolean
   onModeChange: (m: ConversionMode) => void
   onDifficultyChange: (d: Difficulty) => void
+  onTimerToggle: () => void
 }
 
 const MODES: ConversionMode[] = [
@@ -18,20 +20,31 @@ const MODES: ConversionMode[] = [
   'mixed',
 ]
 
-const DIFFICULTIES: Difficulty[] = ['practice', 'easy', 'medium', 'hard']
+const DIFFICULTIES: Difficulty[] = ['practice', 'easy', 'medium', 'hard', 'insane']
 
 const DIFFICULTY_LABELS: Record<Difficulty, string> = {
   practice: 'Practice',
   easy: 'Easy',
   medium: 'Medium',
   hard: 'Hard',
+  insane: '☠ INSANE',
+}
+
+const DIFFICULTY_DESCRIPTIONS: Record<Difficulty, string> = {
+  practice: 'Invaders freeze · 10pts per answer · no lives lost',
+  easy: 'Slow fall + place values · hints on',
+  medium: 'Medium speed · no place values · hints on',
+  hard: 'Fast fall · no hints · 1.5× score multiplier',
+  insane: 'TWO bugs at medium speed · no hints · 2× score · very hard!',
 }
 
 export function ModeSelector({
   mode,
   difficulty,
+  timerEnabled,
   onModeChange,
   onDifficultyChange,
+  onTimerToggle,
 }: ModeSelectorProps) {
   return (
     <div className="space-y-6 max-w-2xl mx-auto w-full">
@@ -69,20 +82,28 @@ export function ModeSelector({
         <div className="flex flex-wrap justify-center gap-3">
           {DIFFICULTIES.map((d) => {
             const isPractice = d === 'practice'
+            const isInsane = d === 'insane'
             const isSelected = difficulty === d
+            let colorClasses: string
+            if (isPractice) {
+              colorClasses = isSelected
+                ? 'bg-[#2ed573] text-[#0a0e1a]'
+                : 'bg-[#12182b] text-[#2ed573]'
+            } else if (isInsane) {
+              colorClasses = isSelected
+                ? 'bg-[#ff2d55] text-[#fff] ring-2 ring-[#ff2d55]'
+                : 'bg-[#12182b] text-[#ff2d55] border-[#ff2d55]'
+            } else {
+              colorClasses = isSelected
+                ? 'bg-[#ff6eb4] text-[#0a0e1a]'
+                : 'bg-[#12182b] text-[#ff6eb4]'
+            }
             return (
               <label
                 key={d}
                 className={`
                   px-6 py-3 cursor-pointer font-pixel text-[10px] sm:text-xs uppercase pixel-border
-                  ${isPractice
-                    ? isSelected
-                      ? 'bg-[#2ed573] text-[#0a0e1a]'
-                      : 'bg-[#12182b] text-[#2ed573]'
-                    : isSelected
-                      ? 'bg-[#ff6eb4] text-[#0a0e1a]'
-                      : 'bg-[#12182b] text-[#ff6eb4]'
-                  }
+                  ${colorClasses}
                 `}
               >
                 <input
@@ -99,9 +120,33 @@ export function ModeSelector({
           })}
         </div>
         <p className="text-center text-[#8a9bb8] text-lg mt-2">
-          {difficulty === 'practice'
-            ? 'Practice: invaders freeze · 10pts per answer · no lives lost'
-            : 'Easy: slow fall + place values · Hard: fast fall & 1.5× score'}
+          {DIFFICULTY_DESCRIPTIONS[difficulty]}
+        </p>
+      </fieldset>
+
+      <fieldset>
+        <legend className="font-pixel text-[#74b9ff] text-xs sm:text-sm mb-3 text-center w-full">
+          Timer
+        </legend>
+        <div className="flex justify-center">
+          <button
+            type="button"
+            onClick={onTimerToggle}
+            className={`
+              px-6 py-3 cursor-pointer font-pixel text-[10px] sm:text-xs pixel-border
+              ${timerEnabled
+                ? 'bg-[#74b9ff] text-[#0a0e1a]'
+                : 'bg-[#12182b] text-[#74b9ff]'
+              }
+            `}
+          >
+            {timerEnabled ? '⏱ 5-MIN TIMER ON' : '∞ TIMER OFF'}
+          </button>
+        </div>
+        <p className="text-center text-[#8a9bb8] text-lg mt-2">
+          {timerEnabled
+            ? 'Timer on — 5-minute session, score saved to leaderboard'
+            : 'Untimed — play forever, score still saved to leaderboard'}
         </p>
       </fieldset>
     </div>

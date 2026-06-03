@@ -7,7 +7,7 @@ export type ConversionMode =
   | 'hex-to-denary'
   | 'mixed'
 
-export type Difficulty = 'practice' | 'easy' | 'medium' | 'hard'
+export type Difficulty = 'practice' | 'easy' | 'medium' | 'hard' | 'insane'
 
 export type NumberSystem = 'binary' | 'denary' | 'hex'
 
@@ -44,6 +44,7 @@ export type LeaderboardFilter =
 export interface GameConfig {
   mode: ConversionMode
   difficulty: Difficulty
+  timerEnabled: boolean
 }
 
 export interface GameStats {
@@ -87,6 +88,8 @@ export const DIFFICULTY_CONFIG: Record<
     fallSpeed: number
     scoreMultiplier: number
     spawnGap: number
+    /** Number of simultaneous threats */
+    threatCount: number
   }
 > = {
   practice: {
@@ -95,6 +98,7 @@ export const DIFFICULTY_CONFIG: Record<
     fallSpeed: 0,
     scoreMultiplier: 1,
     spawnGap: 1.5,
+    threatCount: 1,
   },
   easy: {
     hintsEnabled: true,
@@ -102,6 +106,7 @@ export const DIFFICULTY_CONFIG: Record<
     fallSpeed: 0.055,
     scoreMultiplier: 1,
     spawnGap: 1.2,
+    threatCount: 1,
   },
   medium: {
     hintsEnabled: true,
@@ -109,6 +114,7 @@ export const DIFFICULTY_CONFIG: Record<
     fallSpeed: 0.2,
     scoreMultiplier: 1,
     spawnGap: 0.9,
+    threatCount: 1,
   },
   hard: {
     hintsEnabled: false,
@@ -116,6 +122,15 @@ export const DIFFICULTY_CONFIG: Record<
     fallSpeed: 0.32,
     scoreMultiplier: 1.5,
     spawnGap: 0.55,
+    threatCount: 1,
+  },
+  insane: {
+    hintsEnabled: false,
+    showPlaceValues: false,
+    fallSpeed: 0.2,
+    scoreMultiplier: 2.0,
+    spawnGap: 0.9,
+    threatCount: 2,
   },
 }
 
