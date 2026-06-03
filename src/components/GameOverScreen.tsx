@@ -50,6 +50,7 @@ export function GameOverScreen({
         score: stats.score,
         mode: config.mode,
         difficulty: config.difficulty,
+        timerEnabled: config.timerEnabled,
         accuracy,
         questionsAnswered: stats.questionsAnswered,
         bestStreak: stats.bestStreak,
@@ -73,6 +74,8 @@ export function GameOverScreen({
         <dd>{MODE_LABELS[config.mode]}</dd>
         <dt className="text-[#8a9bb8]">Difficulty</dt>
         <dd className="capitalize">{config.difficulty}</dd>
+        <dt className="text-[#8a9bb8]">Timer</dt>
+        <dd>{config.timerEnabled ? '⏱ 5 min' : '∞ No limit'}</dd>
         <dt className="text-[#8a9bb8]">Accuracy</dt>
         <dd>{accuracy}%</dd>
         <dt className="text-[#8a9bb8]">Questions</dt>

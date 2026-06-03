@@ -9,6 +9,7 @@ export async function queryScores(query: LeaderboardQuery): Promise<LeaderboardE
   params.set('filter', query.filter)
   if (query.mode) params.set('mode', query.mode)
   if (query.difficulty) params.set('difficulty', query.difficulty)
+  if (query.timerEnabled !== undefined) params.set('timerEnabled', String(query.timerEnabled))
 
   const res = await fetch(`${API_BASE}?${params}`)
   if (!res.ok) throw new Error(`Failed to load scores (${res.status})`)
@@ -27,7 +28,7 @@ export async function saveScore(
   const res = await fetch(API_BASE, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ...entry, nickname }),
+    body: JSON.stringify({ ...entry, nickname, timerEnabled: entry.timerEnabled ?? true }),
   })
 
   if (!res.ok) {

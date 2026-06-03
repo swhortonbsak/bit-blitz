@@ -9,6 +9,7 @@ export interface LeaderboardQuery {
   filter: LeaderboardFilter
   mode?: ConversionMode
   difficulty?: Difficulty
+  timerEnabled?: boolean
 }
 
 /** Backend-ready interface */
@@ -107,6 +108,9 @@ export const localLeaderboardStore: LeaderboardStore = {
     }
     if (query.difficulty) {
       list = list.filter((e) => e.difficulty === query.difficulty)
+    }
+    if (query.timerEnabled !== undefined) {
+      list = list.filter((e) => e.timerEnabled === query.timerEnabled)
     }
 
     return list.sort((a, b) => b.score - a.score).slice(0, 50)

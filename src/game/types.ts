@@ -28,6 +28,7 @@ export interface LeaderboardEntry {
   score: number
   mode: ConversionMode
   difficulty: Difficulty
+  timerEnabled: boolean
   timestamp: number
   accuracy: number
   questionsAnswered: number

@@ -18,6 +18,7 @@ export function Leaderboard({ onBack }: LeaderboardProps) {
   const [timeFilter, setTimeFilter] = useState<LeaderboardFilter>('all')
   const [modeFilter, setModeFilter] = useState<ConversionMode | ''>('')
   const [difficultyFilter, setDifficultyFilter] = useState<Difficulty | ''>('')
+  const [timerFilter, setTimerFilter] = useState<'all' | 'timed' | 'untimed'>('all')
   const [entries, setEntries] = useState<LeaderboardEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [fetchError, setFetchError] = useState<string | null>(null)
@@ -29,13 +30,14 @@ export function Leaderboard({ onBack }: LeaderboardProps) {
       filter: timeFilter,
       mode: modeFilter || undefined,
       difficulty: difficultyFilter || undefined,
+      timerEnabled: timerFilter === 'all' ? undefined : timerFilter === 'timed',
     })
       .then(setEntries)
       .catch((e: unknown) =>
         setFetchError(e instanceof Error ? e.message : 'Failed to load scores'),
       )
       .finally(() => setLoading(false))
-  }, [timeFilter, modeFilter, difficultyFilter])
+  }, [timeFilter, modeFilter, difficultyFilter, timerFilter])
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-6">
@@ -64,6 +66,21 @@ export function Leaderboard({ onBack }: LeaderboardProps) {
             }`}
           >
             {f.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="flex flex-wrap gap-2 mb-4">
+        {([['all', 'All timers'], ['timed', '⏱ Timed'], ['untimed', '∞ Untimed']] as const).map(([id, label]) => (
+          <button
+            key={id}
+            type="button"
+            onClick={() => setTimerFilter(id)}
+            className={`px-3 py-1 text-lg pixel-border ${
+              timerFilter === id ? 'bg-[#ffe566] text-[#0a0e1a]' : 'bg-[#12182b]'
+            }`}
+          >
+            {label}
           </button>
         ))}
       </div>
@@ -109,6 +126,7 @@ export function Leaderboard({ onBack }: LeaderboardProps) {
               <th className="p-2">Score</th>
               <th className="p-2 hidden sm:table-cell">Mode</th>
               <th className="p-2 hidden md:table-cell">Diff</th>
+              <th className="p-2 hidden md:table-cell">Timer</th>
               <th className="p-2 hidden lg:table-cell">Acc%</th>
               <th className="p-2 hidden lg:table-cell">Streak</th>
               <th className="p-2 hidden md:table-cell">When</th>
@@ -117,19 +135,19 @@ export function Leaderboard({ onBack }: LeaderboardProps) {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={8} className="p-6 text-center text-[#8a9bb8]">
+                <td colSpan={9} className="p-6 text-center text-[#8a9bb8]">
                   Loading scores…
                 </td>
               </tr>
             ) : fetchError ? (
               <tr>
-                <td colSpan={8} className="p-6 text-center text-[#ff4757]">
+                <td colSpan={9} className="p-6 text-center text-[#ff4757]">
                   {fetchError}
                 </td>
               </tr>
             ) : entries.length === 0 ? (
               <tr>
-                <td colSpan={8} className="p-6 text-center text-[#8a9bb8]">
+                <td colSpan={9} className="p-6 text-center text-[#8a9bb8]">
                   No scores yet — be the first!
                 </td>
               </tr>
@@ -143,6 +161,9 @@ export function Leaderboard({ onBack }: LeaderboardProps) {
                     {MODE_LABELS[e.mode]}
                   </td>
                   <td className="p-2 hidden md:table-cell capitalize">{e.difficulty}</td>
+                  <td className="p-2 hidden md:table-cell text-center" title={e.timerEnabled ? '5-minute timer' : 'No timer'}>
+                    {e.timerEnabled ? '⏱' : '∞'}
+                  </td>
                   <td className="p-2 hidden lg:table-cell">{e.accuracy}%</td>
                   <td className="p-2 hidden lg:table-cell">{e.bestStreak}</td>
                   <td className="p-2 hidden md:table-cell text-sm text-[#8a9bb8]">

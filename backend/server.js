@@ -17,6 +17,7 @@ db.exec(`
     score INTEGER NOT NULL,
     mode TEXT NOT NULL,
     difficulty TEXT NOT NULL,
+    timer_enabled INTEGER NOT NULL DEFAULT 1,
     timestamp INTEGER NOT NULL,
     accuracy INTEGER NOT NULL,
     questions_answered INTEGER NOT NULL,
@@ -24,17 +25,24 @@ db.exec(`
   )
 `)
 
+// Migrate existing DB: add timer_enabled column if absent
+try {
+  db.exec(`ALTER TABLE scores ADD COLUMN timer_enabled INTEGER NOT NULL DEFAULT 1`)
+} catch (_) {
+  // Column already exists — nothing to do
+}
+
 const VALID_MODES = new Set([
   'binary-to-denary','denary-to-binary','binary-to-hex',
   'hex-to-binary','denary-to-hex','hex-to-denary','mixed',
 ])
-const VALID_DIFFICULTIES = new Set(['easy', 'medium', 'hard'])
+const VALID_DIFFICULTIES = new Set(['easy', 'medium', 'hard', 'insane'])
 
 const app = express()
 app.use(express.json())
 
 app.get('/scores', (req, res) => {
-  const { filter, mode, difficulty } = req.query
+  const { filter, mode, difficulty, timerEnabled } = req.query
   const conditions = []
   const params = {}
 
@@ -52,19 +60,24 @@ app.get('/scores', (req, res) => {
 
   if (mode && VALID_MODES.has(mode)) { conditions.push('mode = @mode'); params.mode = mode }
   if (difficulty && VALID_DIFFICULTIES.has(difficulty)) { conditions.push('difficulty = @difficulty'); params.difficulty = difficulty }
+  if (timerEnabled === 'true') { conditions.push('timer_enabled = 1'); }
+  else if (timerEnabled === 'false') { conditions.push('timer_enabled = 0'); }
 
   const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : ''
   const rows = db.prepare(
-    `SELECT id, nickname, score, mode, difficulty, timestamp, accuracy,
+    `SELECT id, nickname, score, mode, difficulty,
+            timer_enabled AS timerEnabled,
+            timestamp, accuracy,
             questions_answered AS questionsAnswered, best_streak AS bestStreak
      FROM scores ${where} ORDER BY score DESC LIMIT 50`
   ).all(params)
 
-  res.json({ entries: rows })
+  // Convert SQLite integer (0/1) to boolean
+  res.json({ entries: rows.map(r => ({ ...r, timerEnabled: r.timerEnabled === 1 })) })
 })
 
 app.post('/scores', (req, res) => {
-  const { nickname, score, mode, difficulty, accuracy, questionsAnswered, bestStreak } = req.body ?? {}
+  const { nickname, score, mode, difficulty, timerEnabled, accuracy, questionsAnswered, bestStreak } = req.body ?? {}
 
   if (!nickname || typeof score !== 'number' || !VALID_MODES.has(mode) || !VALID_DIFFICULTIES.has(difficulty)) {
     return res.status(400).json({ error: 'Invalid or missing fields.' })
@@ -79,6 +92,7 @@ app.post('/scores', (req, res) => {
     score: Math.max(0, Math.round(Number(score))),
     mode,
     difficulty,
+    timerEnabled: timerEnabled === false ? 0 : 1,
     timestamp: Date.now(),
     accuracy: Math.round(Math.max(0, Math.min(100, Number(accuracy) || 0))),
     questionsAnswered: Math.max(0, Math.round(Number(questionsAnswered) || 0)),
@@ -86,11 +100,11 @@ app.post('/scores', (req, res) => {
   }
 
   db.prepare(`
-    INSERT INTO scores (id, nickname, score, mode, difficulty, timestamp, accuracy, questions_answered, best_streak)
-    VALUES (@id, @nickname, @score, @mode, @difficulty, @timestamp, @accuracy, @questionsAnswered, @bestStreak)
+    INSERT INTO scores (id, nickname, score, mode, difficulty, timer_enabled, timestamp, accuracy, questions_answered, best_streak)
+    VALUES (@id, @nickname, @score, @mode, @difficulty, @timerEnabled, @timestamp, @accuracy, @questionsAnswered, @bestStreak)
   `).run(entry)
 
-  res.json({ entry })
+  res.json({ entry: { ...entry, timerEnabled: entry.timerEnabled === 1 } })
 })
 
 const PORT = process.env.PORT || 3000
