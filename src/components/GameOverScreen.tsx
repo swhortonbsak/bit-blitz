@@ -6,8 +6,8 @@ import {
   isNicknameAllowed,
   nicknameFilterMessage,
 } from '../utils/leaderboardStorage'
-import { saveScore } from '../utils/apiLeaderboardStore'
-import { useState } from 'react'
+import { sealScore, saveScore } from '../utils/apiLeaderboardStore'
+import { useEffect, useState } from 'react'
 
 interface GameOverScreenProps {
   config: GameConfig
@@ -29,11 +29,36 @@ export function GameOverScreen({
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // Seal token: obtained automatically when game ends to prove legitimate play.
+  // POST /scores will reject submissions without a valid matching token.
+  const [sealToken, setSealToken] = useState<string | null>(null)
+  const [sealing, setSealing] = useState(false)
+  const [sealError, setSealError] = useState<string | null>(null)
+
   const total = stats.correct + stats.incorrect
   const accuracy = accuracyPercent(stats.correct, total)
   const isPractice = config.difficulty === 'practice'
 
+  // Immediately verify the score with the server when game ends
+  useEffect(() => {
+    if (isPractice) return
+    setSealing(true)
+    sealScore({
+      score: stats.score,
+      questionsAnswered: stats.questionsAnswered,
+      difficulty: config.difficulty,
+      mode: config.mode,
+      timerEnabled: config.timerEnabled,
+    })
+      .then(setSealToken)
+      .catch((e: unknown) =>
+        setSealError(e instanceof Error ? e.message : 'Score could not be verified.'),
+      )
+      .finally(() => setSealing(false))
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleSave = async () => {
+    if (!sealToken) return
     const n = filterNickname(nickname)
     if (!n) {
       setError('Please enter a nickname.')
@@ -45,16 +70,19 @@ export function GameOverScreen({
     }
     setSaving(true)
     try {
-      await saveScore({
-        nickname: n,
-        score: stats.score,
-        mode: config.mode,
-        difficulty: config.difficulty,
-        timerEnabled: config.timerEnabled,
-        accuracy,
-        questionsAnswered: stats.questionsAnswered,
-        bestStreak: stats.bestStreak,
-      })
+      await saveScore(
+        {
+          nickname: n,
+          score: stats.score,
+          mode: config.mode,
+          difficulty: config.difficulty,
+          timerEnabled: config.timerEnabled,
+          accuracy,
+          questionsAnswered: stats.questionsAnswered,
+          bestStreak: stats.bestStreak,
+        },
+        sealToken,
+      )
       setSaved(true)
       setError(null)
     } catch (err) {
@@ -90,7 +118,17 @@ export function GameOverScreen({
         <p className="text-[#2ed573] text-xl mb-6">
           Practice mode — scores are not saved to the leaderboard.
         </p>
-      ) : !saved ? (
+      ) : saved ? (
+        <p className="text-[#2ed573] text-xl mb-6" role="status">
+          Score saved to leaderboard!
+        </p>
+      ) : sealing ? (
+        <p className="text-[#8a9bb8] text-xl mb-6">Verifying score…</p>
+      ) : sealError ? (
+        <p className="text-[#ff4757] text-xl mb-6" role="alert">
+          {sealError}
+        </p>
+      ) : (
         <div className="mb-6">
           <label htmlFor="nickname" className="block text-[#8a9bb8] text-xl mb-2">
             Nickname for leaderboard (max 12 chars, school-appropriate only)
@@ -115,16 +153,12 @@ export function GameOverScreen({
           <button
             type="button"
             onClick={handleSave}
-            disabled={saving}
+            disabled={saving || !sealToken}
             className="mt-4 w-full py-3 bg-[#c49bff] text-[#0a0e1a] font-pixel text-xs pixel-border disabled:opacity-50"
           >
             {saving ? 'Saving…' : 'Save score'}
           </button>
         </div>
-      ) : (
-        <p className="text-[#2ed573] text-xl mb-6" role="status">
-          Score saved to leaderboard!
-        </p>
       )}
 
       <div className="flex flex-col gap-3">

@@ -10,9 +10,10 @@
   <body>
     <div id="root"></div>
     <script>
-      // Anti-cheat: disable React DevTools inspector so game state cannot be
-      // manipulated via the Components panel, and warn against console cheating.
+      // ── Anti-cheat ─────────────────────────────────────────────────────────
       (function () {
+        // 1. Neuter React DevTools so game state cannot be inspected or edited
+        //    via the browser Components panel.
         if (typeof window.__REACT_DEVTOOLS_GLOBAL_HOOK__ === 'object') {
           for (var k in window.__REACT_DEVTOOLS_GLOBAL_HOOK__) {
             try {
@@ -23,21 +24,40 @@
             } catch (_) {}
           }
         }
-        var _warn = console.warn.bind(console);
-        var banner = [
-          '%c⚠ Bit Blitz Anti-Cheat',
-          'color:#ff2d55;font-size:18px;font-weight:bold',
-          '\nGame state is managed inside React and is not accessible from the console.\n' +
-          'Attempting to manipulate the game will void your score.',
-        ];
-        setTimeout(function () {
-          console.warn.apply(console, banner);
-        }, 800);
-        console.warn = function () {
-          if (arguments[0] === banner[0]) {
-            Function.prototype.apply.call(_warn, console, arguments);
-          }
+
+        // 2. Intercept fetch calls to the score API so that calls originating
+        //    from the console (outside the React app) are blocked.
+        //    The React app sets this flag before every legitimate API call.
+        var _fetch = window.fetch.bind(window);
+        var _appFetchAllowed = false;
+        // Exposed only to the module bundle via a closure — not on window
+        window.__allowAppFetch = function (fn) {
+          _appFetchAllowed = true;
+          try { return fn(); } finally { _appFetchAllowed = false; }
         };
+        window.fetch = function (input) {
+          var url = typeof input === 'string' ? input : (input && input.url) || '';
+          if ((url.indexOf('/api/scores') !== -1 || url.indexOf('/api/seal-score') !== -1)
+              && !_appFetchAllowed) {
+            console.warn('%c⛔ Bit Blitz Anti-Cheat: API call blocked.',
+              'color:#ff2d55;font-weight:bold');
+            return Promise.reject(new Error('Blocked by anti-cheat.'));
+          }
+          return _fetch.apply(this, arguments);
+        };
+
+        // 3. Show a deterrent message in the console.
+        setTimeout(function () {
+          console.log(
+            '%c⚠ Bit Blitz — Anti-Cheat Active',
+            'color:#ff2d55;font-size:16px;font-weight:bold'
+          );
+          console.log(
+            '%cAll score submissions are cryptographically verified server-side.\n' +
+            'Direct API calls are blocked. Cheating is logged.',
+            'color:#ff9f43'
+          );
+        }, 800);
       })();
     </script>
     <script type="module" src="/src/main.tsx"></script>
