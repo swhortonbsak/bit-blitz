@@ -12,6 +12,16 @@ interface GameHUDProps {
   difficulty: Difficulty
   lastScoreDelta: number | null
   threats: Threat[]
+  onPause?: () => void
+  pauseAvailable?: boolean
+  pauseCooldownMs?: number
+}
+
+function formatCooldownMs(ms: number): string {
+  const totalSec = Math.ceil(ms / 1000)
+  const min = Math.floor(totalSec / 60)
+  const sec = totalSec % 60
+  return `${min}:${String(sec).padStart(2, '0')}`
 }
 
 export function GameHUD({
@@ -23,6 +33,9 @@ export function GameHUD({
   difficulty,
   lastScoreDelta,
   threats,
+  onPause,
+  pauseAvailable = true,
+  pauseCooldownMs = 0,
 }: GameHUDProps) {
   const primaryProgress = threats.reduce((max, t) => Math.max(max, t.progress), 0)
   const fallPct = Math.round(primaryProgress * 100)
@@ -83,6 +96,21 @@ export function GameHUD({
             <span className="font-pixel text-[#74b9ff] text-[8px]">∞ UNTIMED</span>
           )}
         </div>
+        {onPause && (
+          <button
+            type="button"
+            onClick={onPause}
+            disabled={!pauseAvailable}
+            title={
+              pauseAvailable
+                ? 'Pause game (1 per 15 min)'
+                : `Pause available in ${formatCooldownMs(pauseCooldownMs)}`
+            }
+            className="px-2 py-1 font-pixel text-[6px] sm:text-[7px] text-[#ffe566] border-2 border-[#636e72] bg-[#2d3436] hover:bg-[#636e72] disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+          >
+            {pauseAvailable ? 'PAUSE' : formatCooldownMs(pauseCooldownMs)}
+          </button>
+        )}
         <SoundToggle compact />
       </div>
 

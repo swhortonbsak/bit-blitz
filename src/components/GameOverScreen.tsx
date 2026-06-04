@@ -6,23 +6,27 @@ import {
   isNicknameAllowed,
   nicknameFilterMessage,
 } from '../utils/leaderboardStorage'
-import { sealScore, saveScore } from '../utils/apiLeaderboardStore'
+import { CheatingDetectedError, sealScore, saveScore } from '../utils/apiLeaderboardStore'
 import { useEffect, useState } from 'react'
 
 interface GameOverScreenProps {
   config: GameConfig
   stats: GameStats
+  answerIntervals: number[]
   onPlayAgain: () => void
   onMenu: () => void
   onLeaderboard: () => void
+  onCheatingDetected: () => void
 }
 
 export function GameOverScreen({
   config,
   stats,
+  answerIntervals,
   onPlayAgain,
   onMenu,
   onLeaderboard,
+  onCheatingDetected,
 }: GameOverScreenProps) {
   const [nickname, setNickname] = useState('')
   const [saved, setSaved] = useState(false)
@@ -39,6 +43,14 @@ export function GameOverScreen({
   const accuracy = accuracyPercent(stats.correct, total)
   const isPractice = config.difficulty === 'practice'
 
+  const handleCheatingError = (err: unknown) => {
+    if (err instanceof CheatingDetectedError) {
+      onCheatingDetected()
+      return true
+    }
+    return false
+  }
+
   // Immediately verify the score with the server when game ends
   useEffect(() => {
     if (isPractice) return
@@ -49,11 +61,13 @@ export function GameOverScreen({
       difficulty: config.difficulty,
       mode: config.mode,
       timerEnabled: config.timerEnabled,
+      answerIntervals,
     })
       .then(setSealToken)
-      .catch((e: unknown) =>
-        setSealError(e instanceof Error ? e.message : 'Score could not be verified.'),
-      )
+      .catch((e: unknown) => {
+        if (handleCheatingError(e)) return
+        setSealError(e instanceof Error ? e.message : 'Score could not be verified.')
+      })
       .finally(() => setSealing(false))
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -82,10 +96,12 @@ export function GameOverScreen({
           bestStreak: stats.bestStreak,
         },
         sealToken,
+        answerIntervals,
       )
       setSaved(true)
       setError(null)
     } catch (err) {
+      if (handleCheatingError(err)) return
       setError(err instanceof Error ? err.message : nicknameFilterMessage())
     } finally {
       setSaving(false)

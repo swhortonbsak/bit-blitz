@@ -4,12 +4,14 @@ import { ArcadeCabinet } from './components/ArcadeCabinet'
 import { ArcadeKeypad } from './components/ArcadeKeypad'
 import { BitPanel, getBitIndexFromKey } from './components/BitPanel'
 import { BunkerMonitor } from './components/BunkerMonitor'
+import { CheatingDetectedScreen } from './components/CheatingDetectedScreen'
 import { GameHUD } from './components/GameHUD'
 import { GameOverScreen } from './components/GameOverScreen'
 import { HintPanel } from './components/HintPanel'
 import { Leaderboard } from './components/Leaderboard'
 import { ArcadePlayfield, getThreatPosition } from './components/ArcadePlayfield'
 import type { ExplosionFxState, MissileStrikeState } from './components/ArcadePlayfield'
+import { PauseOverlay } from './components/PauseOverlay'
 import { StartScreen } from './components/StartScreen'
 import {
   advanceRound,
@@ -18,6 +20,8 @@ import {
   flipBit,
   getCurrentAnswer,
   getPrimaryThreat,
+  pauseGame,
+  resumeGame,
   setTypedAnswer,
   tickGame,
   toggleHint,
@@ -27,9 +31,15 @@ import type { ConversionMode, Difficulty } from './game/types'
 import { DIFFICULTY_CONFIG, getAnswerStyle } from './game/types'
 import { explainConversion } from './utils/conversions'
 import { getHighScore, updateHighScore } from './utils/highScore'
+import { canPauseNow, msUntilPauseAvailable, recordPauseUsed } from './utils/pauseCooldown'
+import {
+  getRecentIntervals,
+  hasUniformSubmissionPattern,
+  recordSubmission,
+} from './utils/answerTimingGuard'
 import { validateAnswer } from './utils/validation'
 
-type AppScreen = 'start' | 'playing' | 'leaderboard'
+type AppScreen = 'start' | 'playing' | 'leaderboard' | 'cheating'
 
 function App() {
   const { play, unlock } = useSound()
@@ -41,15 +51,38 @@ function App() {
   const [highScore, setHighScore] = useState(getHighScore)
   const [missileStrike, setMissileStrike] = useState<MissileStrikeState | null>(null)
   const [explosionFx, setExplosionFx] = useState<ExplosionFxState | null>(null)
+  const [pauseCooldownMs, setPauseCooldownMs] = useState(msUntilPauseAvailable)
   const feedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const prevPhase = useRef<string | null>(null)
   const missilesBusy = useRef(false)
   const missileStrikeRef = useRef<MissileStrikeState | null>(null)
+  const answerTimestampsRef = useRef<number[]>([])
   missileStrikeRef.current = missileStrike
+
+  const triggerCheatingDetected = useCallback(() => {
+    setGame(null)
+    setMissileStrike(null)
+    setExplosionFx(null)
+    missilesBusy.current = false
+    setScreen('cheating')
+  }, [])
+
+  const trackAnswerSubmission = useCallback(
+    (now: number) => {
+      answerTimestampsRef.current = recordSubmission(answerTimestampsRef.current, now)
+      if (hasUniformSubmissionPattern(answerTimestampsRef.current)) {
+        triggerCheatingDetected()
+        return true
+      }
+      return false
+    },
+    [triggerCheatingDetected],
+  )
 
   const startGame = useCallback(() => {
     unlock()
     play('start')
+    answerTimestampsRef.current = []
     setGame(createInitialState({ mode: selectedMode, difficulty: selectedDifficulty, timerEnabled }))
     setScreen('playing')
   }, [selectedMode, selectedDifficulty, timerEnabled, play, unlock])
@@ -74,6 +107,14 @@ function App() {
 
     return () => clearInterval(id)
   }, [screen, game?.phase, game?.question.id])
+
+  useEffect(() => {
+    if (screen !== 'playing') return
+    const update = () => setPauseCooldownMs(msUntilPauseAvailable())
+    update()
+    const id = window.setInterval(update, 1000)
+    return () => clearInterval(id)
+  }, [screen, game?.phase])
 
   useEffect(() => {
     if (!game) return
@@ -120,15 +161,17 @@ function App() {
     // Pass submittedAt so fireAnswer in engine can skip the timing check for
     // missile-triggered commits (timing was already checked in handleFire)
     const submittedAt = (strike as MissileStrikeState & { submittedAt?: number }).submittedAt
+    const now = submittedAt ?? Date.now()
     setGame((g) => {
       if (!g) return g
       return fireAnswer(g, true, submittedAt)
     })
+    trackAnswerSubmission(now)
     window.setTimeout(() => {
       setExplosionFx(null)
       missilesBusy.current = false
     }, 1400)
-  }, [play])
+  }, [play, trackAnswerSubmission])
 
   const handleFire = useCallback(() => {
     if (!game || game.phase !== 'playing' || missilesBusy.current) return
@@ -155,14 +198,41 @@ function App() {
       return
     }
 
-    setGame((g) => (g ? fireAnswer(g, correct, Date.now()) : g))
-  }, [game, play])
+    const now = Date.now()
+    setGame((g) => (g ? fireAnswer(g, correct, now) : g))
+    trackAnswerSubmission(now)
+  }, [game, play, trackAnswerSubmission])
+
+  const handlePause = useCallback(() => {
+    if (!game || game.phase !== 'playing' || missileStrike || !canPauseNow()) return
+    recordPauseUsed()
+    setPauseCooldownMs(msUntilPauseAvailable())
+    setGame((g) => (g ? pauseGame(g) : g))
+  }, [game, missileStrike])
+
+  const handleResume = useCallback(() => {
+    setGame((g) => (g ? resumeGame(g) : g))
+  }, [])
 
   useEffect(() => {
     if (screen !== 'playing' || !game) return
 
     const onKey = (e: KeyboardEvent) => {
       if (game.phase === 'gameover') return
+
+      if (game.phase === 'paused') {
+        if (e.key === 'Enter' || e.key === ' ' || e.key === 'Escape' || e.key === 'p' || e.key === 'P') {
+          e.preventDefault()
+          handleResume()
+        }
+        return
+      }
+
+      if ((e.key === 'Escape' || e.key === 'p' || e.key === 'P') && game.phase === 'playing') {
+        e.preventDefault()
+        handlePause()
+        return
+      }
 
       if (e.key === 'Enter' || e.key === ' ') {
         e.preventDefault()
@@ -191,7 +261,7 @@ function App() {
 
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [screen, game, handleFire, play])
+  }, [screen, game, handleFire, handlePause, handleResume, play])
 
   if (screen === 'leaderboard') {
     return (
@@ -219,6 +289,21 @@ function App() {
     )
   }
 
+  if (screen === 'cheating') {
+    return (
+      <AppShell>
+        <CheatingDetectedScreen
+          onPlayAgain={startGame}
+          onMenu={() => {
+            answerTimestampsRef.current = []
+            setGame(null)
+            setScreen('start')
+          }}
+        />
+      </AppShell>
+    )
+  }
+
   if (!game) return null
 
   if (game.phase === 'gameover') {
@@ -227,6 +312,7 @@ function App() {
         <GameOverScreen
           config={game.config}
           stats={game.stats}
+          answerIntervals={getRecentIntervals(answerTimestampsRef.current)}
           onPlayAgain={startGame}
           onMenu={() => {
             setGame(null)
@@ -236,6 +322,7 @@ function App() {
             setGame(null)
             setScreen('leaderboard')
           }}
+          onCheatingDetected={triggerCheatingDetected}
         />
       </AppShell>
     )
@@ -255,17 +342,23 @@ function App() {
         difficulty={game.config.difficulty}
         lastScoreDelta={game.lastScoreDelta}
         threats={game.threats}
+        onPause={handlePause}
+        pauseAvailable={pauseCooldownMs === 0}
+        pauseCooldownMs={pauseCooldownMs}
       />
 
-      <ArcadePlayfield
-        threats={game.threats}
-        question={game.question}
-        phase={game.phase}
-        highScore={highScore}
-        missileStrike={missileStrike}
-        explosionFx={explosionFx}
-        onMissileImpact={handleMissileImpact}
-      />
+      <div className="relative flex-1 flex flex-col min-h-0">
+        <ArcadePlayfield
+          threats={game.threats}
+          question={game.question}
+          phase={game.phase}
+          highScore={highScore}
+          missileStrike={missileStrike}
+          explosionFx={explosionFx}
+          onMissileImpact={handleMissileImpact}
+        />
+        {game.phase === 'paused' && <PauseOverlay onResume={handleResume} />}
+      </div>
 
       <section className="launchpad-section controls-panel shrink-0 bg-[#636e72] border-y-4 border-[#b2bec3] px-2 py-1 max-h-[28vh] overflow-y-auto">
 

@@ -5,6 +5,15 @@ import { filterNickname, isNicknameAllowed, nicknameFilterMessage } from './lead
 const API_BASE = '/api/scores'
 const SEAL_BASE = '/api/seal-score'
 
+export class CheatingDetectedError extends Error {
+  readonly code = 'CHEATING_DETECTED'
+
+  constructor(message = 'Cheating detected.') {
+    super(message)
+    this.name = 'CheatingDetectedError'
+  }
+}
+
 // Allow this module's fetch calls to pass through the anti-cheat fetch guard.
 // The guard blocks any /api/* call not wrapped in __allowAppFetch.
 function appFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
@@ -13,6 +22,14 @@ function appFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Respons
     return w.__allowAppFetch(() => fetch(input, init)) as Promise<Response>
   }
   return fetch(input, init)
+}
+
+async function parseApiError(res: Response, fallback: string): Promise<never> {
+  const err = (await res.json().catch(() => ({}))) as { error?: string; code?: string }
+  if (res.status === 403 && err.code === 'CHEATING_DETECTED') {
+    throw new CheatingDetectedError(err.error ?? 'Cheating detected.')
+  }
+  throw new Error(err.error ?? fallback)
 }
 
 export async function queryScores(query: LeaderboardQuery): Promise<LeaderboardEntry[]> {
@@ -36,16 +53,14 @@ export async function sealScore(params: {
   difficulty: Difficulty
   mode: ConversionMode
   timerEnabled: boolean
+  answerIntervals: number[]
 }): Promise<string> {
   const res = await appFetch(SEAL_BASE, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(params),
   })
-  if (!res.ok) {
-    const err = (await res.json().catch(() => ({}))) as { error?: string }
-    throw new Error(err.error ?? 'Score could not be verified.')
-  }
+  if (!res.ok) await parseApiError(res, 'Score could not be verified.')
   const data = (await res.json()) as { token: string }
   return data.token
 }
@@ -53,6 +68,7 @@ export async function sealScore(params: {
 export async function saveScore(
   entry: Omit<LeaderboardEntry, 'id' | 'timestamp'>,
   sealToken: string,
+  answerIntervals: number[],
 ): Promise<LeaderboardEntry> {
   const nickname = filterNickname(entry.nickname)
   if (!isNicknameAllowed(nickname)) {
@@ -62,13 +78,16 @@ export async function saveScore(
   const res = await appFetch(API_BASE, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ...entry, nickname, sealToken, timerEnabled: entry.timerEnabled ?? true }),
+    body: JSON.stringify({
+      ...entry,
+      nickname,
+      sealToken,
+      timerEnabled: entry.timerEnabled ?? true,
+      answerIntervals,
+    }),
   })
 
-  if (!res.ok) {
-    const err = (await res.json().catch(() => ({}))) as { error?: string }
-    throw new Error(err.error ?? 'Failed to save score')
-  }
+  if (!res.ok) await parseApiError(res, 'Failed to save score')
 
   const data = (await res.json()) as { entry: LeaderboardEntry }
   return data.entry

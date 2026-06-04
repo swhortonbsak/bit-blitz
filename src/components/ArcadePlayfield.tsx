@@ -73,7 +73,7 @@ export function ArcadePlayfield({
 
       {threats.map((threat) => {
         const showInvader =
-          !hideInvaders && (phase === 'playing' || threat.exploding)
+          !hideInvaders && (phase === 'playing' || phase === 'paused' || threat.exploding)
         if (!showInvader) return null
         const invaderLabel = formatInvaderLabel(threat.displayValue, threat.question.sourceType)
         const progress = threat.progress

@@ -3,7 +3,7 @@ import { computeRoundScore } from './scoring'
 import type { GameConfig, GameStats, Question, Threat } from './types'
 import { DIFFICULTY_CONFIG } from './types'
 
-export type GamePhase = 'playing' | 'feedback' | 'gameover'
+export type GamePhase = 'playing' | 'paused' | 'feedback' | 'gameover'
 
 export interface GameState {
   phase: GamePhase
@@ -337,6 +337,16 @@ export function advanceRound(state: GameState): GameState {
     lastScoreDelta: null,
     shake: false,
   }
+}
+
+export function pauseGame(state: GameState): GameState {
+  if (state.phase !== 'playing') return state
+  return { ...state, phase: 'paused' }
+}
+
+export function resumeGame(state: GameState): GameState {
+  if (state.phase !== 'paused') return state
+  return { ...state, phase: 'playing' }
 }
 
 /** @deprecated use fireAnswer */
