@@ -12,6 +12,14 @@
     <script>
       // ── Anti-cheat ─────────────────────────────────────────────────────────
       (function () {
+        // 0. Preserve native timers before any speed-hack patches setTimeout/setInterval
+        var _nativeSetTimeout = window.setTimeout.bind(window);
+        var _nativeSetInterval = window.setInterval.bind(window);
+        window.__timerIntegrityOk = function () {
+          return window.setTimeout === _nativeSetTimeout
+            && window.setInterval === _nativeSetInterval;
+        };
+
         // 1. Neuter React DevTools so game state cannot be inspected or edited
         //    via the browser Components panel.
         if (typeof window.__REACT_DEVTOOLS_GLOBAL_HOOK__ === 'object') {

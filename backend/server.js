@@ -108,11 +108,12 @@ const VALID_MODES = new Set([
 ])
 const VALID_DIFFICULTIES = new Set(['easy', 'medium', 'hard', 'insane'])
 const {
-  hasUniformIntervalPattern,
-  normalizeAnswerIntervals,
-  serializeAnswerIntervals,
-  parseAnswerIntervals,
-  intervalsMatch,
+  hasSuspiciousBurstInWindow,
+  isExtremeSessionOutlier,
+  normalizeAnswerEvents,
+  serializeAnswerEvents,
+  parseAnswerEvents,
+  answerEventsMatch,
 } = require('./answerTimingGuard')
 
 function rejectCheating(res) {
@@ -151,7 +152,7 @@ app.get('/scores', (req, res) => {
             timer_enabled AS timerEnabled,
             timestamp, accuracy,
             questions_answered AS questionsAnswered, best_streak AS bestStreak
-     FROM scores ${where} ORDER BY score DESC LIMIT 50`
+     FROM scores ${where} ORDER BY score DESC LIMIT 100`
   ).all(params)
 
   res.json({ entries: rows.map(r => ({ ...r, timerEnabled: r.timerEnabled === 1 })) })
@@ -171,7 +172,7 @@ app.post('/seal-score', (req, res) => {
 
   pruneSealTokens()
 
-  const { score, questionsAnswered, difficulty, mode, timerEnabled, answerIntervals } = req.body ?? {}
+  const { score, questionsAnswered, difficulty, mode, timerEnabled, answerEvents, sessionPlayMs } = req.body ?? {}
 
   if (!VALID_MODES.has(mode) || !VALID_DIFFICULTIES.has(difficulty)) {
     return res.status(400).json({ error: 'Invalid game parameters.' })
@@ -181,17 +182,23 @@ app.post('/seal-score', (req, res) => {
     return res.status(400).json({ error: 'Score could not be verified.' })
   }
 
-  const normalizedIntervals = normalizeAnswerIntervals(answerIntervals)
-  if (hasUniformIntervalPattern(normalizedIntervals)) {
+  const normalizedEvents = normalizeAnswerEvents(answerEvents)
+  const now = Date.now()
+  if (hasSuspiciousBurstInWindow(normalizedEvents, now)) {
+    return rejectCheating(res)
+  }
+
+  const playMs = Math.round(Number(sessionPlayMs) || 0)
+  if (isExtremeSessionOutlier(score, playMs)) {
     return rejectCheating(res)
   }
 
   const nonce = randomBytes(8).toString('hex')
-  const ts = Date.now()
+  const ts = now
   const te = timerEnabled ? 1 : 0
-  const intervalsSerialized = serializeAnswerIntervals(normalizedIntervals)
+  const eventsSerialized = serializeAnswerEvents(normalizedEvents)
   // Payload binds every field used when saving the score
-  const payload = [score, questionsAnswered, difficulty, mode, te, intervalsSerialized, nonce, ts].join('|')
+  const payload = [score, questionsAnswered, difficulty, mode, te, eventsSerialized, playMs, nonce, ts].join('|')
   const sig = createHmac('sha256', SEAL_SECRET).update(payload).digest('hex')
   const token = Buffer.from(payload).toString('base64url') + '.' + sig
 
@@ -211,11 +218,17 @@ app.post('/scores', (req, res) => {
 
   const {
     nickname, score, mode, difficulty, timerEnabled,
-    accuracy, questionsAnswered, bestStreak, sealToken, answerIntervals,
+    accuracy, questionsAnswered, bestStreak, sealToken, answerEvents, sessionPlayMs,
   } = req.body ?? {}
 
-  const normalizedIntervals = normalizeAnswerIntervals(answerIntervals)
-  if (hasUniformIntervalPattern(normalizedIntervals)) {
+  const normalizedEvents = normalizeAnswerEvents(answerEvents)
+  const now = Date.now()
+  if (hasSuspiciousBurstInWindow(normalizedEvents, now)) {
+    return rejectCheating(res)
+  }
+
+  const playMs = Math.round(Number(sessionPlayMs) || 0)
+  if (isExtremeSessionOutlier(score, playMs)) {
     return rejectCheating(res)
   }
 
@@ -242,7 +255,7 @@ app.post('/scores', (req, res) => {
     }
 
     // Verify submitted fields exactly match the sealed payload
-    const [sScore, sQ, sDiff, sMode, sTe, sIntervals] = payload.split('|')
+    const [sScore, sQ, sDiff, sMode, sTe, sEvents, sPlayMs] = payload.split('|')
     const teMatch = (sTe === '1') === Boolean(timerEnabled)
     if (
       Math.round(Number(sScore)) !== Math.round(Number(score)) ||
@@ -250,7 +263,8 @@ app.post('/scores', (req, res) => {
       sDiff !== difficulty ||
       sMode !== mode ||
       !teMatch ||
-      !intervalsMatch(parseAnswerIntervals(sIntervals), normalizedIntervals)
+      !answerEventsMatch(parseAnswerEvents(sEvents), normalizedEvents) ||
+      Math.round(Number(sPlayMs)) !== playMs
     ) {
       return res.status(400).json({ error: 'Score data does not match game session.' })
     }

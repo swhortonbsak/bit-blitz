@@ -7,12 +7,14 @@ import {
   nicknameFilterMessage,
 } from '../utils/leaderboardStorage'
 import { CheatingDetectedError, sealScore, saveScore } from '../utils/apiLeaderboardStore'
+import type { AnswerEvent } from '../utils/answerTimingGuard'
 import { useEffect, useState } from 'react'
 
 interface GameOverScreenProps {
   config: GameConfig
   stats: GameStats
-  answerIntervals: number[]
+  answerEvents: AnswerEvent[]
+  sessionPlayMs: number
   onPlayAgain: () => void
   onMenu: () => void
   onLeaderboard: () => void
@@ -22,7 +24,8 @@ interface GameOverScreenProps {
 export function GameOverScreen({
   config,
   stats,
-  answerIntervals,
+  answerEvents,
+  sessionPlayMs,
   onPlayAgain,
   onMenu,
   onLeaderboard,
@@ -61,7 +64,8 @@ export function GameOverScreen({
       difficulty: config.difficulty,
       mode: config.mode,
       timerEnabled: config.timerEnabled,
-      answerIntervals,
+      answerEvents,
+      sessionPlayMs,
     })
       .then(setSealToken)
       .catch((e: unknown) => {
@@ -96,7 +100,8 @@ export function GameOverScreen({
           bestStreak: stats.bestStreak,
         },
         sealToken,
-        answerIntervals,
+        answerEvents,
+        sessionPlayMs,
       )
       setSaved(true)
       setError(null)

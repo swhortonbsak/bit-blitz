@@ -1,5 +1,6 @@
 import { useSound } from '../audio/SoundContext'
 import { HEX_DIGITS } from '../game/types'
+import { isTrustedInput } from '../utils/inputTrust'
 import { sanitizeDenaryInput, sanitizeHexInput } from '../utils/validation'
 
 interface ArcadeKeypadProps {
@@ -17,16 +18,16 @@ export function ArcadeKeypad({ mode, value, onChange, disabled }: ArcadeKeypadPr
       ? HEX_DIGITS
       : ['7', '8', '9', '4', '5', '6', '1', '2', '3', '0']
 
-  const append = (key: string) => {
-    if (disabled) return
+  const append = (key: string, event: React.MouseEvent | React.KeyboardEvent) => {
+    if (!isTrustedInput(event.nativeEvent) || disabled) return
     unlock()
     play('flip')
     const next = mode === 'hex' ? sanitizeHexInput(value + key) : sanitizeDenaryInput(value + key)
     onChange(next)
   }
 
-  const backspace = () => {
-    if (disabled) return
+  const backspace = (event: React.MouseEvent) => {
+    if (!isTrustedInput(event.nativeEvent) || disabled) return
     play('menu')
     onChange(value.slice(0, -1))
   }
@@ -69,7 +70,7 @@ export function ArcadeKeypad({ mode, value, onChange, disabled }: ArcadeKeypadPr
             key={k}
             type="button"
             disabled={disabled}
-            onClick={() => append(k)}
+            onClick={(e) => append(k, e)}
             className="py-1.5 sm:py-2 font-pixel text-[10px] sm:text-xs bg-[#dfe6e9] text-[#1a1a1a] border-3 border-[#1a1a1a] shadow-[1px_2px_0_#636e72] hover:brightness-105 disabled:opacity-40 active:translate-y-px"
           >
             {k}
@@ -78,7 +79,7 @@ export function ArcadeKeypad({ mode, value, onChange, disabled }: ArcadeKeypadPr
         <button
           type="button"
           disabled={disabled}
-          onClick={backspace}
+          onClick={(e) => backspace(e)}
           className={`${mode === 'hex' ? 'col-span-4' : 'col-span-3'} py-1 font-pixel text-[8px] bg-[#5c3d2e] text-[#ffccaa] border-2 border-[#3d2914]`}
         >
           CLR

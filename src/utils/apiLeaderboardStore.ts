@@ -1,4 +1,5 @@
 import type { ConversionMode, Difficulty, LeaderboardEntry } from '../game/types'
+import type { AnswerEvent } from './answerTimingGuard'
 import type { LeaderboardQuery } from './leaderboardStorage'
 import { filterNickname, isNicknameAllowed, nicknameFilterMessage } from './leaderboardStorage'
 
@@ -53,7 +54,8 @@ export async function sealScore(params: {
   difficulty: Difficulty
   mode: ConversionMode
   timerEnabled: boolean
-  answerIntervals: number[]
+  answerEvents: AnswerEvent[]
+  sessionPlayMs: number
 }): Promise<string> {
   const res = await appFetch(SEAL_BASE, {
     method: 'POST',
@@ -68,7 +70,8 @@ export async function sealScore(params: {
 export async function saveScore(
   entry: Omit<LeaderboardEntry, 'id' | 'timestamp'>,
   sealToken: string,
-  answerIntervals: number[],
+  answerEvents: AnswerEvent[],
+  sessionPlayMs: number,
 ): Promise<LeaderboardEntry> {
   const nickname = filterNickname(entry.nickname)
   if (!isNicknameAllowed(nickname)) {
@@ -83,7 +86,8 @@ export async function saveScore(
       nickname,
       sealToken,
       timerEnabled: entry.timerEnabled ?? true,
-      answerIntervals,
+      answerEvents,
+      sessionPlayMs,
     }),
   })
 

@@ -1,4 +1,5 @@
 import { BINARY_PLACE_VALUES } from '../utils/conversions'
+import { isTrustedInput } from '../utils/inputTrust'
 
 interface BitPanelProps {
   bits: boolean[]
@@ -42,7 +43,10 @@ export function BitPanel({ bits, onFlip, showPlaceValues, disabled }: BitPanelPr
             key={i}
             type="button"
             disabled={disabled}
-            onClick={() => onFlip(i)}
+            onClick={(e) => {
+              if (!isTrustedInput(e.nativeEvent)) return
+              onFlip(i)
+            }}
             aria-label={`Bit ${i + 1}, ${on ? 1 : 0}`}
             aria-pressed={on}
             className={`

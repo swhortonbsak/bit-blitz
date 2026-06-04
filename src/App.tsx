@@ -32,11 +32,8 @@ import { DIFFICULTY_CONFIG, getAnswerStyle } from './game/types'
 import { explainConversion } from './utils/conversions'
 import { getHighScore, updateHighScore } from './utils/highScore'
 import { canPauseNow, msUntilPauseAvailable, recordPauseUsed } from './utils/pauseCooldown'
-import {
-  getRecentIntervals,
-  hasUniformSubmissionPattern,
-  recordSubmission,
-} from './utils/answerTimingGuard'
+import { recordAnswerEvent, type AnswerEvent } from './utils/answerTimingGuard'
+import { isTimerIntegrityOk, isTrustedInput } from './utils/inputTrust'
 import { validateAnswer } from './utils/validation'
 
 type AppScreen = 'start' | 'playing' | 'leaderboard' | 'cheating'
@@ -52,11 +49,12 @@ function App() {
   const [missileStrike, setMissileStrike] = useState<MissileStrikeState | null>(null)
   const [explosionFx, setExplosionFx] = useState<ExplosionFxState | null>(null)
   const [pauseCooldownMs, setPauseCooldownMs] = useState(msUntilPauseAvailable)
-  const feedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const prevPhase = useRef<string | null>(null)
   const missilesBusy = useRef(false)
   const missileStrikeRef = useRef<MissileStrikeState | null>(null)
-  const answerTimestampsRef = useRef<number[]>([])
+  const answerEventsRef = useRef<AnswerEvent[]>([])
+  const gameSessionStartRef = useRef(0)
+  const [sessionPlayMs, setSessionPlayMs] = useState(0)
   missileStrikeRef.current = missileStrike
 
   const triggerCheatingDetected = useCallback(() => {
@@ -67,22 +65,16 @@ function App() {
     setScreen('cheating')
   }, [])
 
-  const trackAnswerSubmission = useCallback(
-    (now: number) => {
-      answerTimestampsRef.current = recordSubmission(answerTimestampsRef.current, now)
-      if (hasUniformSubmissionPattern(answerTimestampsRef.current)) {
-        triggerCheatingDetected()
-        return true
-      }
-      return false
-    },
-    [triggerCheatingDetected],
-  )
+  const trackAnswerEvent = useCallback((at: number, reactionMs: number) => {
+    answerEventsRef.current = recordAnswerEvent(answerEventsRef.current, at, reactionMs)
+  }, [])
 
   const startGame = useCallback(() => {
     unlock()
     play('start')
-    answerTimestampsRef.current = []
+    answerEventsRef.current = []
+    gameSessionStartRef.current = performance.now()
+    setSessionPlayMs(0)
     setGame(createInitialState({ mode: selectedMode, difficulty: selectedDifficulty, timerEnabled }))
     setScreen('playing')
   }, [selectedMode, selectedDifficulty, timerEnabled, play, unlock])
@@ -98,14 +90,17 @@ function App() {
     if (screen !== 'playing' || !game || game.phase !== 'playing') return
 
     let last = performance.now()
-    const id = window.setInterval(() => {
+    let rafId = 0
+    const frame = () => {
       const now = performance.now()
       const delta = (now - last) / 1000
       last = now
       setGame((g) => (g ? tickGame(g, delta) : g))
-    }, 50)
+      rafId = requestAnimationFrame(frame)
+    }
+    rafId = requestAnimationFrame(frame)
 
-    return () => clearInterval(id)
+    return () => cancelAnimationFrame(rafId)
   }, [screen, game?.phase, game?.question.id])
 
   useEffect(() => {
@@ -127,6 +122,7 @@ function App() {
     }
     if (game.phase === 'gameover' && prevPhase.current !== 'gameover') {
       play('gameOver')
+      setSessionPlayMs(Math.round(performance.now() - gameSessionStartRef.current))
     }
     prevPhase.current = game.phase
   }, [game?.phase, game?.feedbackCorrect, game?.feedbackMessage, play])
@@ -134,18 +130,24 @@ function App() {
   useEffect(() => {
     if (!game || game.phase !== 'feedback') return
 
-    if (feedbackTimer.current) clearTimeout(feedbackTimer.current)
-    feedbackTimer.current = setTimeout(() => {
-      setGame((g) => {
-        if (!g) return g
-        if (g.phase === 'gameover') return g
-        return advanceRound(g)
-      })
-    }, game.feedbackCorrect ? 1600 : 2400)
+    const durationMs = game.feedbackCorrect ? 1600 : 2400
+    const start = performance.now()
+    let rafId = 0
 
-    return () => {
-      if (feedbackTimer.current) clearTimeout(feedbackTimer.current)
+    const tick = () => {
+      if (performance.now() - start >= durationMs) {
+        setGame((g) => {
+          if (!g) return g
+          if (g.phase === 'gameover') return g
+          return advanceRound(g)
+        })
+        return
+      }
+      rafId = requestAnimationFrame(tick)
     }
+    rafId = requestAnimationFrame(tick)
+
+    return () => cancelAnimationFrame(rafId)
   }, [game?.phase, game?.question.id, game?.feedbackCorrect])
 
   const handleMissileImpact = useCallback(() => {
@@ -164,16 +166,27 @@ function App() {
     const now = submittedAt ?? Date.now()
     setGame((g) => {
       if (!g) return g
+      const reactionMs = (submittedAt ?? now) - g.questionSpawnedAt
+      trackAnswerEvent(submittedAt ?? now, reactionMs)
       return fireAnswer(g, true, submittedAt)
     })
-    trackAnswerSubmission(now)
-    window.setTimeout(() => {
-      setExplosionFx(null)
-      missilesBusy.current = false
-    }, 1400)
-  }, [play, trackAnswerSubmission])
+    const impactStart = performance.now()
+    const clearImpact = () => {
+      if (performance.now() - impactStart >= 1400) {
+        setExplosionFx(null)
+        missilesBusy.current = false
+        return
+      }
+      requestAnimationFrame(clearImpact)
+    }
+    requestAnimationFrame(clearImpact)
+  }, [play, trackAnswerEvent])
 
   const handleFire = useCallback(() => {
+    if (!isTimerIntegrityOk()) {
+      triggerCheatingDetected()
+      return
+    }
     if (!game || game.phase !== 'playing' || missilesBusy.current) return
     const answer = getCurrentAnswer(game)
     const q = game.question
@@ -200,8 +213,8 @@ function App() {
 
     const now = Date.now()
     setGame((g) => (g ? fireAnswer(g, correct, now) : g))
-    trackAnswerSubmission(now)
-  }, [game, play, trackAnswerSubmission])
+    trackAnswerEvent(now, elapsed)
+  }, [game, play, trackAnswerEvent, triggerCheatingDetected])
 
   const handlePause = useCallback(() => {
     if (!game || game.phase !== 'playing' || missileStrike || !canPauseNow()) return
@@ -218,6 +231,7 @@ function App() {
     if (screen !== 'playing' || !game) return
 
     const onKey = (e: KeyboardEvent) => {
+      if (!isTrustedInput(e)) return
       if (game.phase === 'gameover') return
 
       if (game.phase === 'paused') {
@@ -295,7 +309,7 @@ function App() {
         <CheatingDetectedScreen
           onPlayAgain={startGame}
           onMenu={() => {
-            answerTimestampsRef.current = []
+            answerEventsRef.current = []
             setGame(null)
             setScreen('start')
           }}
@@ -307,14 +321,20 @@ function App() {
   if (!game) return null
 
   if (game.phase === 'gameover') {
+    const playMs =
+      sessionPlayMs > 0
+        ? sessionPlayMs
+        : Math.round(performance.now() - gameSessionStartRef.current)
     return (
       <AppShell>
         <GameOverScreen
           config={game.config}
           stats={game.stats}
-          answerIntervals={getRecentIntervals(answerTimestampsRef.current)}
+          answerEvents={answerEventsRef.current}
+          sessionPlayMs={playMs}
           onPlayAgain={startGame}
           onMenu={() => {
+            answerEventsRef.current = []
             setGame(null)
             setScreen('start')
           }}
@@ -404,7 +424,8 @@ function App() {
         <div className="flex justify-center items-center gap-2 mt-1">
           <button
             type="button"
-            onClick={() => {
+            onClick={(e) => {
+              if (!isTrustedInput(e.nativeEvent)) return
               unlock()
               handleFire()
             }}

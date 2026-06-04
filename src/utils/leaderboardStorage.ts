@@ -113,7 +113,7 @@ export const localLeaderboardStore: LeaderboardStore = {
       list = list.filter((e) => e.timerEnabled === query.timerEnabled)
     }
 
-    return list.sort((a, b) => b.score - a.score).slice(0, 50)
+    return list.sort((a, b) => b.score - a.score).slice(0, 100)
   },
 }
 

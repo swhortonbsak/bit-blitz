@@ -10,8 +10,8 @@ export function CheatingDetectedScreen({ onPlayAgain, onMenu }: CheatingDetected
 
       <div className="mb-8 text-left bg-[#12182b] p-4 pixel-border">
         <p className="text-[#dfe6e9] text-lg sm:text-xl leading-relaxed mb-3">
-          Automated answer timing was detected. Answers submitted at perfectly regular
-          intervals are not allowed.
+          Unauthorized automation or game tampering was detected. This session cannot
+          continue fairly.
         </p>
         <p className="text-[#8a9bb8] text-lg sm:text-xl leading-relaxed">
           This session&apos;s score will not be saved to the leaderboard.
