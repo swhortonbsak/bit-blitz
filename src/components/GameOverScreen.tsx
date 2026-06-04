@@ -29,7 +29,6 @@ export function GameOverScreen({
   onPlayAgain,
   onMenu,
   onLeaderboard,
-  onCheatingDetected,
 }: GameOverScreenProps) {
   const [nickname, setNickname] = useState('')
   const [saved, setSaved] = useState(false)
@@ -48,7 +47,7 @@ export function GameOverScreen({
 
   const handleCheatingError = (err: unknown) => {
     if (err instanceof CheatingDetectedError) {
-      onCheatingDetected()
+      setSealError('This score could not be verified. Please play a new game.')
       return true
     }
     return false

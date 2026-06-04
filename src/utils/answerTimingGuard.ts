@@ -7,8 +7,6 @@ export const WINDOW_MS = 60_000
 export const IMPOSSIBLE_REACTION_MS = 180
 export const IMPOSSIBLE_BURST_MIN_SAMPLES = 5
 export const IMPOSSIBLE_BURST_THRESHOLD = 3
-export const UNIFORM_INTERVAL_TOLERANCE_MS = 120
-export const UNIFORM_INTERVAL_COUNT = 4
 export const ROBOTIC_CV_THRESHOLD = 0.12
 export const ROBOTIC_CV_MEDIAN_MS = 900
 export const ROBOTIC_CV_SAMPLES = 6
@@ -29,23 +27,6 @@ export function recordAnswerEvent(events: AnswerEvent[], at: number, reactionMs:
 export function getEventsInWindow(events: AnswerEvent[], now: number, windowMs = WINDOW_MS): AnswerEvent[] {
   const cutoff = now - windowMs
   return events.filter((e) => e.at >= cutoff)
-}
-
-export function getSubmissionIntervals(events: AnswerEvent[]): number[] {
-  if (events.length < 2) return []
-  const sorted = [...events].sort((a, b) => a.at - b.at)
-  const intervals: number[] = []
-  for (let i = 1; i < sorted.length; i++) {
-    intervals.push(sorted[i].at - sorted[i - 1].at)
-  }
-  return intervals
-}
-
-function intervalsAreUniform(intervals: number[], count: number, toleranceMs: number): boolean {
-  if (intervals.length < count) return false
-  const recent = intervals.slice(-count)
-  const first = recent[0]
-  return recent.every((gap) => Math.abs(gap - first) <= toleranceMs)
 }
 
 export function median(values: number[]): number {
@@ -77,8 +58,6 @@ export function hasSuspiciousBurstInWindow(
     impossibleMs?: number
     impossibleMinSamples?: number
     impossibleThreshold?: number
-    uniformToleranceMs?: number
-    uniformCount?: number
     roboticCv?: number
     roboticMedianMs?: number
     roboticSamples?: number
@@ -96,10 +75,9 @@ export function hasSuspiciousBurstInWindow(
     if (fastCount >= impossibleThreshold) return true
   }
 
-  const uniformToleranceMs = options?.uniformToleranceMs ?? UNIFORM_INTERVAL_TOLERANCE_MS
-  const uniformCount = options?.uniformCount ?? UNIFORM_INTERVAL_COUNT
-  const intervals = getSubmissionIntervals(inWindow)
-  if (intervalsAreUniform(intervals, uniformCount, uniformToleranceMs)) return true
+  // Uniform submission gaps are not checked here: the game has fixed feedback
+  // delays (1.6s / 2.4s) so steady human play produces similar intervals and
+  // would false-positive. Bots are caught via impossible bursts and robotic bands.
 
   const roboticSamples = options?.roboticSamples ?? ROBOTIC_CV_SAMPLES
   const reactions = inWindow.slice(-roboticSamples).map((e) => e.reactionMs)

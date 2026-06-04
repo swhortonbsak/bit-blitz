@@ -54,12 +54,12 @@ describe('answerTimingGuard', () => {
     expect(hasSuspiciousBurstInWindow(events, NOW)).toBe(false)
   })
 
-  it('flags uniform submission gaps in window only', () => {
+  it('does not flag uniform submission gaps from steady human rhythm', () => {
     const events = eventsAtOffsets(
       [50_000, 49_000, 48_000, 47_000, 46_000],
       1000,
     )
-    expect(hasSuspiciousBurstInWindow(events, NOW)).toBe(true)
+    expect(hasSuspiciousBurstInWindow(events, NOW)).toBe(false)
   })
 
   it('flags robotic tight jitter band in window', () => {

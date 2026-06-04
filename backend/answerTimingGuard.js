@@ -4,8 +4,6 @@ const WINDOW_MS = 60_000
 const IMPOSSIBLE_REACTION_MS = 180
 const IMPOSSIBLE_BURST_MIN_SAMPLES = 5
 const IMPOSSIBLE_BURST_THRESHOLD = 3
-const UNIFORM_INTERVAL_TOLERANCE_MS = 120
-const UNIFORM_INTERVAL_COUNT = 4
 const ROBOTIC_CV_THRESHOLD = 0.12
 const ROBOTIC_CV_MEDIAN_MS = 900
 const ROBOTIC_CV_SAMPLES = 6
@@ -16,23 +14,6 @@ const MAX_HISTORY = 20
 function getEventsInWindow(events, now, windowMs = WINDOW_MS) {
   const cutoff = now - windowMs
   return events.filter((e) => e.at >= cutoff)
-}
-
-function getSubmissionIntervals(events) {
-  if (events.length < 2) return []
-  const sorted = [...events].sort((a, b) => a.at - b.at)
-  const intervals = []
-  for (let i = 1; i < sorted.length; i++) {
-    intervals.push(sorted[i].at - sorted[i - 1].at)
-  }
-  return intervals
-}
-
-function intervalsAreUniform(intervals, count, toleranceMs) {
-  if (intervals.length < count) return false
-  const recent = intervals.slice(-count)
-  const first = recent[0]
-  return recent.every((gap) => Math.abs(gap - first) <= toleranceMs)
 }
 
 function median(values) {
@@ -65,11 +46,6 @@ function hasSuspiciousBurstInWindow(events, now, options = {}) {
     const fastCount = inWindow.filter((e) => e.reactionMs < impossibleMs).length
     if (fastCount >= impossibleThreshold) return true
   }
-
-  const uniformToleranceMs = options.uniformToleranceMs ?? UNIFORM_INTERVAL_TOLERANCE_MS
-  const uniformCount = options.uniformCount ?? UNIFORM_INTERVAL_COUNT
-  const intervals = getSubmissionIntervals(inWindow)
-  if (intervalsAreUniform(intervals, uniformCount, uniformToleranceMs)) return true
 
   const roboticSamples = options.roboticSamples ?? ROBOTIC_CV_SAMPLES
   const reactions = inWindow.slice(-roboticSamples).map((e) => e.reactionMs)
