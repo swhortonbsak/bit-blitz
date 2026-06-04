@@ -8,7 +8,7 @@ import {
 } from '../utils/leaderboardStorage'
 import { CheatingDetectedError, sealScore, saveScore } from '../utils/apiLeaderboardStore'
 import type { AnswerEvent } from '../utils/answerTimingGuard'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 interface GameOverScreenProps {
   config: GameConfig
@@ -19,6 +19,17 @@ interface GameOverScreenProps {
   onMenu: () => void
   onLeaderboard: () => void
   onCheatingDetected: () => void
+}
+
+/** Snapshot taken once at game over — seal and save must send identical fields. */
+interface ScoreSessionSnapshot {
+  score: number
+  questionsAnswered: number
+  difficulty: GameConfig['difficulty']
+  mode: GameConfig['mode']
+  timerEnabled: boolean
+  answerEvents: AnswerEvent[]
+  sessionPlayMs: number
 }
 
 export function GameOverScreen({
@@ -35,11 +46,23 @@ export function GameOverScreen({
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // Seal token: obtained automatically when game ends to prove legitimate play.
-  // POST /scores will reject submissions without a valid matching token.
   const [sealToken, setSealToken] = useState<string | null>(null)
   const [sealing, setSealing] = useState(false)
   const [sealError, setSealError] = useState<string | null>(null)
+
+  const sessionRef = useRef<ScoreSessionSnapshot | null>(null)
+  if (!sessionRef.current) {
+    sessionRef.current = {
+      score: stats.score,
+      questionsAnswered: stats.questionsAnswered,
+      difficulty: config.difficulty,
+      mode: config.mode,
+      timerEnabled: config.timerEnabled,
+      answerEvents: answerEvents.map((e) => ({ ...e })),
+      sessionPlayMs,
+    }
+  }
+  const session = sessionRef.current
 
   const total = stats.correct + stats.incorrect
   const accuracy = accuracyPercent(stats.correct, total)
@@ -53,26 +76,17 @@ export function GameOverScreen({
     return false
   }
 
-  // Immediately verify the score with the server when game ends
   useEffect(() => {
     if (isPractice) return
     setSealing(true)
-    sealScore({
-      score: stats.score,
-      questionsAnswered: stats.questionsAnswered,
-      difficulty: config.difficulty,
-      mode: config.mode,
-      timerEnabled: config.timerEnabled,
-      answerEvents,
-      sessionPlayMs,
-    })
+    sealScore(session)
       .then(setSealToken)
       .catch((e: unknown) => {
         if (handleCheatingError(e)) return
         setSealError(e instanceof Error ? e.message : 'Score could not be verified.')
       })
       .finally(() => setSealing(false))
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isPractice, session])
 
   const handleSave = async () => {
     if (!sealToken) return
@@ -90,17 +104,17 @@ export function GameOverScreen({
       await saveScore(
         {
           nickname: n,
-          score: stats.score,
-          mode: config.mode,
-          difficulty: config.difficulty,
-          timerEnabled: config.timerEnabled,
+          score: session.score,
+          mode: session.mode,
+          difficulty: session.difficulty,
+          timerEnabled: session.timerEnabled,
           accuracy,
-          questionsAnswered: stats.questionsAnswered,
+          questionsAnswered: session.questionsAnswered,
           bestStreak: stats.bestStreak,
         },
         sealToken,
-        answerEvents,
-        sessionPlayMs,
+        session.answerEvents,
+        session.sessionPlayMs,
       )
       setSaved(true)
       setError(null)

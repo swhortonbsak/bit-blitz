@@ -43,7 +43,15 @@
         // Exposed only to the module bundle via a closure — not on window
         window.__allowAppFetch = function (fn) {
           _appFetchAllowed = true;
-          try { return fn(); } finally { _appFetchAllowed = false; }
+          try {
+            var result = fn();
+            return Promise.resolve(result).finally(function () {
+              _appFetchAllowed = false;
+            });
+          } catch (err) {
+            _appFetchAllowed = false;
+            throw err;
+          }
         };
         window.fetch = function (input) {
           var url = typeof input === 'string' ? input : (input && input.url) || '';

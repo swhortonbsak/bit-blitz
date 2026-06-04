@@ -14,6 +14,32 @@ const TIME_FILTERS: { id: LeaderboardFilter; label: string }[] = [
   { id: 'week', label: 'This week' },
 ]
 
+const ALL_TIME_PODIUM: Record<
+  1 | 2 | 3,
+  { cupClass: string; nameClass: string; label: string }
+> = {
+  1: {
+    cupClass: 'text-[#ffd700] drop-shadow-[0_0_6px_rgba(255,215,0,0.5)]',
+    nameClass: 'text-lg sm:text-xl text-[#ffd700]',
+    label: '1st place',
+  },
+  2: {
+    cupClass: 'text-[#d8d8d8] drop-shadow-[0_0_4px_rgba(192,192,192,0.4)]',
+    nameClass: 'text-[#e8e8e8]',
+    label: '2nd place',
+  },
+  3: {
+    cupClass: 'text-[#cd7f32] drop-shadow-[0_0_4px_rgba(205,127,50,0.4)]',
+    nameClass: 'text-[#e0a870]',
+    label: '3rd place',
+  },
+}
+
+function getAllTimePodium(rank: number) {
+  if (rank < 1 || rank > 3) return null
+  return ALL_TIME_PODIUM[rank as 1 | 2 | 3]
+}
+
 export function Leaderboard({ onBack }: LeaderboardProps) {
   const [timeFilter, setTimeFilter] = useState<LeaderboardFilter>('all')
   const [modeFilter, setModeFilter] = useState<ConversionMode | ''>('')
@@ -152,10 +178,28 @@ export function Leaderboard({ onBack }: LeaderboardProps) {
                 </td>
               </tr>
             ) : (
-              entries.map((e, i) => (
+              entries.map((e, i) => {
+                const rank = i + 1
+                const podium = timeFilter === 'all' ? getAllTimePodium(rank) : null
+                return (
                 <tr key={e.id} className="border-t border-[#2a3558]">
-                  <td className="p-2 text-[#ffe566]">{i + 1}</td>
-                  <td className="p-2 font-bold">{e.nickname}</td>
+                  <td className="p-2 text-[#ffe566]">{rank}</td>
+                  <td className="p-2 font-bold">
+                    <span className="inline-flex items-center gap-1.5 min-w-0">
+                      {podium && (
+                        <span
+                          className={`text-base sm:text-lg shrink-0 ${podium.cupClass}`}
+                          title={podium.label}
+                          aria-hidden
+                        >
+                          🏆
+                        </span>
+                      )}
+                      <span className={`truncate ${podium ? podium.nameClass : ''}`}>
+                        {e.nickname}
+                      </span>
+                    </span>
+                  </td>
                   <td className="p-2 text-[#b8ff5a]">{e.score}</td>
                   <td className="p-2 hidden sm:table-cell text-sm">
                     {MODE_LABELS[e.mode]}
@@ -170,7 +214,7 @@ export function Leaderboard({ onBack }: LeaderboardProps) {
                     {new Date(e.timestamp).toLocaleString()}
                   </td>
                 </tr>
-              ))
+              )})
             )}
           </tbody>
         </table>

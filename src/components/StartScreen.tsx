@@ -15,6 +15,13 @@ interface StartScreenProps {
   onLeaderboard: () => void
 }
 
+const QUICK_RULES = [
+  { icon: '🐛', label: 'Bug', hint: 'number to convert' },
+  { icon: '⬜', label: 'Bits', hint: 'keys 1–8' },
+  { icon: '🖥️', label: 'Monitor', hint: 'hex + denary' },
+  { icon: '🚀', label: 'FIRE', hint: 'launch rockets' },
+] as const
+
 export function StartScreen({
   mode,
   difficulty,
@@ -27,57 +34,87 @@ export function StartScreen({
   onLeaderboard,
 }: StartScreenProps) {
   return (
-    <div className="title-screen max-w-2xl mx-auto px-4 py-6 sm:py-10">
-      <div className="flex justify-end mb-2">
+    <div className="title-screen h-full max-h-full flex flex-col gap-1.5 overflow-hidden">
+      <div className="flex justify-end shrink-0">
         <SoundToggle />
       </div>
 
-      <div className="text-center mb-8 title-panel p-6 sm:p-8">
-        <div className="flex justify-center mb-4 bit-bot-float">
-          <BitBot className="w-20 h-20 sm:w-24 sm:h-24" />
+      <div className="flex-1 min-h-0 overflow-hidden">
+        <div
+          className="title-screen-fit h-full grid gap-2.5 items-start
+            grid-cols-1 lg:grid-cols-[minmax(0,0.36fr)_minmax(0,0.64fr)]"
+        >
+          <div className="title-panel p-2.5 sm:p-3 flex flex-col gap-2.5 min-h-0">
+            <div className="flex gap-2.5 sm:gap-3 items-center">
+              <div className="bit-bot-float shrink-0">
+                <BitBot className="w-14 h-14 sm:w-16 sm:h-16" />
+              </div>
+              <div className="min-w-0 flex-1 text-left">
+                <p className="font-pixel text-[#ffe566] text-[10px] sm:text-xs mb-0.5">
+                  HIGHSCORE {highScore}
+                </p>
+                <h1 className="font-pixel text-[#74b9ff] text-base sm:text-xl leading-snug mb-0.5 drop-shadow-[3px_3px_0_#1a1a1a]">
+                  BIT BLITZ
+                </h1>
+                <p className="text-[#ff7675] font-bold font-pixel text-[10px] sm:text-xs leading-snug">
+                  Attack of the Base-16 Invaders
+                </p>
+              </div>
+            </div>
+
+            <p className="hidden md:block text-[#dfe6e9] text-sm leading-snug text-left">
+              Flip your 8 defence bits, read the bunker monitor, and FIRE before the hex bugs land!
+            </p>
+
+            <div className="border-t border-[#2a3558]/80 pt-2">
+              <h2 className="font-pixel text-[#ffe566] text-[10px] mb-1.5">HOW TO PLAY</h2>
+              <ul className="grid grid-cols-2 gap-1.5 list-none">
+                {QUICK_RULES.map(({ icon, label, hint }) => (
+                  <li
+                    key={label}
+                    className="start-rule flex items-center gap-1.5 px-2 py-1.5 min-w-0"
+                  >
+                    <span className="text-sm shrink-0" aria-hidden>
+                      {icon}
+                    </span>
+                    <span className="min-w-0 leading-tight">
+                      <span className="block font-pixel text-[#ffe566] text-[9px] sm:text-[10px]">
+                        {label}
+                      </span>
+                      <span className="block text-[#b2bec3] text-[10px] sm:text-xs truncate">
+                        {hint}
+                      </span>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+
+          <div className="min-h-0 w-full">
+            <ModeSelector
+              compact
+              hideDescriptions
+              className="max-w-none"
+              mode={mode}
+              difficulty={difficulty}
+              timerEnabled={timerEnabled}
+              onModeChange={onModeChange}
+              onDifficultyChange={onDifficultyChange}
+              onTimerToggle={onTimerToggle}
+            />
+          </div>
         </div>
-        <p className="font-pixel text-[#ffe566] text-[10px] sm:text-xs mb-2">
-          HIGHSCORE {highScore}
-        </p>
-        <h1 className="font-pixel text-[#74b9ff] text-lg sm:text-2xl leading-relaxed mb-2 drop-shadow-[3px_3px_0_#1a1a1a]">
-          BIT BLITZ
-        </h1>
-        <p className="text-[#ff7675] text-xl sm:text-2xl font-bold font-pixel text-xs sm:text-sm">
-          Attack of the Base-16 Invaders
-        </p>
-        <p className="mt-4 text-[#dfe6e9] text-lg sm:text-xl max-w-md mx-auto leading-relaxed">
-          Hex bugs descend from the stars. Flip your 8 defence bits, watch the bunker
-          monitor, and FIRE rockets before they land!
-        </p>
       </div>
 
-      <div className="rules-panel p-4 sm:p-6 mb-8">
-        <h2 className="font-pixel text-[#ffe566] text-[10px] mb-3">HOW TO PLAY</h2>
-        <ul className="text-lg sm:text-xl space-y-2 text-[#dfe6e9] list-none">
-          <li>🐛 Falling bug = the number to convert</li>
-          <li>⬜ White tiles = your 8 bits (keys 1–8)</li>
-          <li>🖥️ Bunker monitor = live hex + denary readout</li>
-          <li>🚀 FIRE = launch rockets at the invader</li>
-        </ul>
-      </div>
-
-      <ModeSelector
-        mode={mode}
-        difficulty={difficulty}
-        timerEnabled={timerEnabled}
-        onModeChange={onModeChange}
-        onDifficultyChange={onDifficultyChange}
-        onTimerToggle={onTimerToggle}
-      />
-
-      <div className="flex flex-col sm:flex-row gap-4 justify-center mt-8">
-        <button type="button" onClick={onPlay} className="fire-btn px-10 py-4 font-pixel text-xs">
+      <div className="shrink-0 flex flex-col sm:flex-row gap-2 justify-center pt-0.5">
+        <button type="button" onClick={onPlay} className="fire-btn px-8 py-2.5 sm:py-3 font-pixel text-xs">
           INSERT COIN ▶
         </button>
         <button
           type="button"
           onClick={onLeaderboard}
-          className="px-8 py-4 bg-[#2d3436] text-[#74b9ff] font-pixel text-[10px] border-4 border-[#636e72] hover:bg-[#636e72]"
+          className="px-6 py-2.5 sm:py-3 bg-[#2d3436] text-[#74b9ff] font-pixel text-[10px] border-4 border-[#636e72] hover:bg-[#636e72]"
         >
           HISCORES
         </button>

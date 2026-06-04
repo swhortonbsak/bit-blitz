@@ -5,6 +5,8 @@ services:
       dockerfile: Dockerfile
     container_name: bit-blitz
     restart: unless-stopped
+    depends_on:
+      - bit-blitz-api
     networks:
       - v2_default
 

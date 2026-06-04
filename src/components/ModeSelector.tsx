@@ -8,6 +8,11 @@ interface ModeSelectorProps {
   onModeChange: (m: ConversionMode) => void
   onDifficultyChange: (d: Difficulty) => void
   onTimerToggle: () => void
+  /** Tighter spacing for the start screen viewport layout */
+  compact?: boolean
+  /** Hide difficulty/timer helper lines to save vertical space on the title screen */
+  hideDescriptions?: boolean
+  className?: string
 }
 
 const MODES: ConversionMode[] = [
@@ -45,19 +50,32 @@ export function ModeSelector({
   onModeChange,
   onDifficultyChange,
   onTimerToggle,
+  compact = false,
+  hideDescriptions = false,
+  className = '',
 }: ModeSelectorProps) {
+  const sectionGap = compact ? 'space-y-2' : 'space-y-6'
+  const legendMb = compact ? 'mb-1' : 'mb-3'
+  const descMt = compact ? 'mt-1' : 'mt-2'
+  const modePad = compact ? 'p-2 gap-1.5' : 'p-3 gap-2'
+  const modeText = compact ? 'text-base sm:text-lg' : 'text-lg sm:text-xl'
+  const diffPad = compact ? 'px-3 py-1.5' : 'px-6 py-3'
+  const diffGap = compact ? 'gap-1.5' : 'gap-3'
+
   return (
-    <div className="space-y-6 max-w-2xl mx-auto w-full">
+    <div className={`${sectionGap} max-w-2xl mx-auto w-full ${className}`.trim()}>
       <fieldset>
-        <legend className="font-pixel text-[#5ef0ff] text-xs sm:text-sm mb-3 text-center w-full">
+        <legend
+          className={`font-pixel text-[#5ef0ff] text-xs sm:text-sm ${legendMb} text-center w-full`}
+        >
           Conversion mode
         </legend>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <div className={`grid gap-1.5 ${compact ? 'grid-cols-2' : 'grid-cols-1 sm:grid-cols-2'}`}>
           {MODES.map((m) => (
             <label
               key={m}
               className={`
-                flex items-center gap-2 p-3 cursor-pointer text-lg sm:text-xl pixel-border
+                flex items-center ${modePad} cursor-pointer ${modeText} pixel-border
                 ${mode === m ? 'bg-[#2a3558] ring-2 ring-[#5ef0ff]' : 'bg-[#12182b] hover:bg-[#1a2238]'}
               `}
             >
@@ -76,10 +94,12 @@ export function ModeSelector({
       </fieldset>
 
       <fieldset>
-        <legend className="font-pixel text-[#ff6eb4] text-xs sm:text-sm mb-3 text-center w-full">
+        <legend
+          className={`font-pixel text-[#ff6eb4] text-xs sm:text-sm ${legendMb} text-center w-full`}
+        >
           Difficulty
         </legend>
-        <div className="flex flex-wrap justify-center gap-3">
+        <div className={`flex flex-wrap justify-center ${diffGap}`}>
           {DIFFICULTIES.map((d) => {
             const isPractice = d === 'practice'
             const isInsane = d === 'insane'
@@ -102,7 +122,7 @@ export function ModeSelector({
               <label
                 key={d}
                 className={`
-                  px-6 py-3 cursor-pointer font-pixel text-[10px] sm:text-xs uppercase pixel-border
+                  ${diffPad} cursor-pointer font-pixel text-[10px] sm:text-xs uppercase pixel-border
                   ${colorClasses}
                 `}
               >
@@ -119,13 +139,17 @@ export function ModeSelector({
             )
           })}
         </div>
-        <p className="text-center text-[#8a9bb8] text-lg mt-2">
-          {DIFFICULTY_DESCRIPTIONS[difficulty]}
-        </p>
+        {!hideDescriptions && (
+          <p className={`text-center text-[#8a9bb8] text-lg ${descMt}`}>
+            {DIFFICULTY_DESCRIPTIONS[difficulty]}
+          </p>
+        )}
       </fieldset>
 
       <fieldset>
-        <legend className="font-pixel text-[#74b9ff] text-xs sm:text-sm mb-3 text-center w-full">
+        <legend
+          className={`font-pixel text-[#74b9ff] text-xs sm:text-sm ${legendMb} text-center w-full`}
+        >
           Timer
         </legend>
         <div className="flex justify-center">
@@ -133,7 +157,7 @@ export function ModeSelector({
             type="button"
             onClick={onTimerToggle}
             className={`
-              px-6 py-3 cursor-pointer font-pixel text-[10px] sm:text-xs pixel-border
+              ${diffPad} cursor-pointer font-pixel text-[10px] sm:text-xs pixel-border
               ${timerEnabled
                 ? 'bg-[#74b9ff] text-[#0a0e1a]'
                 : 'bg-[#12182b] text-[#74b9ff]'
@@ -143,11 +167,13 @@ export function ModeSelector({
             {timerEnabled ? '⏱ 5-MIN TIMER ON' : '∞ TIMER OFF'}
           </button>
         </div>
-        <p className="text-center text-[#8a9bb8] text-lg mt-2">
-          {timerEnabled
-            ? 'Timer on — 5-minute session, score saved to leaderboard'
-            : 'Untimed — play forever, score still saved to leaderboard'}
-        </p>
+        {!hideDescriptions && (
+          <p className={`text-center text-[#8a9bb8] text-lg ${descMt}`}>
+            {timerEnabled
+              ? 'Timer on — 5-minute session, score saved to leaderboard'
+              : 'Untimed — play forever, score still saved to leaderboard'}
+          </p>
+        )}
       </fieldset>
     </div>
   )

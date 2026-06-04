@@ -287,7 +287,7 @@ function App() {
 
   if (screen === 'start') {
     return (
-      <AppShell>
+      <AppShell fullHeight>
         <StartScreen
           mode={selectedMode}
           difficulty={selectedDifficulty}
@@ -470,10 +470,16 @@ function App() {
   )
 }
 
-function AppShell({ children }: { children: ReactNode }) {
+function AppShell({ children, fullHeight }: { children: ReactNode; fullHeight?: boolean }) {
   return (
-    <div className="min-h-dvh bg-[#1a1a2e] py-4">
-      <div className="relative z-10 max-w-4xl mx-auto px-2">{children}</div>
+    <div
+      className={`bg-[#1a1a2e] ${
+        fullHeight ? 'h-dvh max-h-dvh overflow-hidden py-1 sm:py-2' : 'min-h-dvh py-4'
+      }`}
+    >
+      <div className={`relative z-10 mx-auto px-2 h-full ${fullHeight ? 'max-w-6xl' : 'max-w-4xl'}`}>
+        {children}
+      </div>
     </div>
   )
 }

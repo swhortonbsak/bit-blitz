@@ -17,12 +17,25 @@ export class CheatingDetectedError extends Error {
 
 // Allow this module's fetch calls to pass through the anti-cheat fetch guard.
 // The guard blocks any /api/* call not wrapped in __allowAppFetch.
+function isNetworkFailure(err: unknown): boolean {
+  if (!(err instanceof Error)) return false
+  return err.message === 'Failed to fetch' || err.name === 'TypeError'
+}
+
 function appFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  const run = () =>
+    fetch(input, init).catch((err: unknown) => {
+      if (isNetworkFailure(err)) {
+        throw new Error('Could not reach the score server. Please check your connection and try again.')
+      }
+      throw err
+    })
+
   const w = window as unknown as { __allowAppFetch?: (fn: () => unknown) => Promise<Response> }
   if (typeof w.__allowAppFetch === 'function') {
-    return w.__allowAppFetch(() => fetch(input, init)) as Promise<Response>
+    return w.__allowAppFetch(run) as Promise<Response>
   }
-  return fetch(input, init)
+  return run()
 }
 
 async function parseApiError(res: Response, fallback: string): Promise<never> {
